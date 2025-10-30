@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/core", "ultracite/next"],
+  "files": {
+    "includes": [
+      "!node_modules",
+      "!dist",
+      "!build",
+      "!bun.lock",
+      "!components/ui/*",
+      "!components/ai-elements/*",
+      "!components/theme-provider.tsx"
+    ]
+  },
+  "javascript": {
+    "globals": ["Bun"]
+  },
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noConsole": "warn"
+      }
+    }
+  }
+}

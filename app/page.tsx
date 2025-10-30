@@ -1,11 +1,16 @@
-'use client';
+"use client";
 
+import { useChat } from "@ai-sdk/react";
+import { CopyIcon, RefreshCcwIcon } from "lucide-react";
+import { Fragment, useState } from "react";
+import { Action, Actions } from "@/components/ai-elements/actions";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
-import { Message, MessageContent } from '@/components/ai-elements/message';
+} from "@/components/ai-elements/conversation";
+import { Loader } from "@/components/ai-elements/loader";
+import { Message, MessageContent } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -15,7 +20,8 @@ import {
   PromptInputAttachment,
   PromptInputAttachments,
   PromptInputBody,
-  PromptInputButton,
+  PromptInputFooter,
+  PromptInputHeader,
   type PromptInputMessage,
   PromptInputModelSelect,
   PromptInputModelSelectContent,
@@ -24,41 +30,28 @@ import {
   PromptInputModelSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
-  PromptInputFooter,
   PromptInputTools,
-  PromptInputHeader,
-} from '@/components/ai-elements/prompt-input';
-import { Action, Actions } from '@/components/ai-elements/actions';
-import { Fragment, useState } from 'react';
-import { useChat } from '@ai-sdk/react';
-import { Response } from '@/components/ai-elements/response';
-import { CopyIcon, GlobeIcon, RefreshCcwIcon } from 'lucide-react';
-import {
-  Source,
-  Sources,
-  SourcesContent,
-  SourcesTrigger,
-} from '@/components/ai-elements/sources';
+} from "@/components/ai-elements/prompt-input";
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
-} from '@/components/ai-elements/reasoning';
-import { Loader } from '@/components/ai-elements/loader';
+} from "@/components/ai-elements/reasoning";
+import { Response } from "@/components/ai-elements/response";
 
 const models = [
   {
-    name: 'GPT 4o',
-    value: 'openai/gpt-4o',
+    name: "GPT 5 nano",
+    value: "openai/gpt-5-nano",
   },
   {
-    name: 'Deepseek R1',
-    value: 'deepseek/deepseek-r1',
+    name: "Deepseek R1",
+    value: "deepseek/deepseek-r1",
   },
 ];
 
 const ChatBotDemo = () => {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(models[0].value);
   const { messages, sendMessage, status, regenerate } = useChat();
 
@@ -71,84 +64,67 @@ const ChatBotDemo = () => {
     }
 
     sendMessage(
-      { 
-        text: message.text || 'Sent with attachments',
-        files: message.files 
+      {
+        text: message.text || "Sent with attachments",
+        files: message.files,
       },
       {
         body: {
-          model: model, 
+          model,
         },
-      },
+      }
     );
-    setInput('');
+    setInput("");
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
-      <div className="flex flex-col h-full">
+    <div className="relative mx-auto size-full h-screen max-w-4xl p-6">
+      <div className="flex h-full flex-col">
         <Conversation className="h-full">
           <ConversationContent>
             {messages.map((message) => (
               <div key={message.id}>
-                {message.role === 'assistant' && message.parts.filter((part) => part.type === 'source-url').length > 0 && (
-                  <Sources>
-                    <SourcesTrigger
-                      count={
-                        message.parts.filter(
-                          (part) => part.type === 'source-url',
-                        ).length
-                      }
-                    />
-                    {message.parts.filter((part) => part.type === 'source-url').map((part, i) => (
-                      <SourcesContent key={`${message.id}-${i}`}>
-                        <Source
-                          key={`${message.id}-${i}`}
-                          href={part.url}
-                          title={part.url}
-                        />
-                      </SourcesContent>
-                    ))}
-                  </Sources>
-                )}
                 {message.parts.map((part, i) => {
                   switch (part.type) {
-                    case 'text':
+                    case "text":
                       return (
                         <Fragment key={`${message.id}-${i}`}>
                           <Message from={message.role}>
                             <MessageContent>
-                              <Response>
-                                {part.text}
-                              </Response>
+                              <Response>{part.text}</Response>
                             </MessageContent>
                           </Message>
-                          {message.role === 'assistant' && i === messages.length - 1 && (
-                            <Actions className="mt-2">
-                              <Action
-                                onClick={() => regenerate()}
-                                label="Retry"
-                              >
-                                <RefreshCcwIcon className="size-3" />
-                              </Action>
-                              <Action
-                                onClick={() =>
-                                  navigator.clipboard.writeText(part.text)
-                                }
-                                label="Copy"
-                              >
-                                <CopyIcon className="size-3" />
-                              </Action>
-                            </Actions>
-                          )}
+                          {message.role === "assistant" &&
+                            i === messages.length - 1 && (
+                              <Actions className="mt-2">
+                                <Action
+                                  label="Retry"
+                                  onClick={() => regenerate()}
+                                >
+                                  <RefreshCcwIcon className="size-3" />
+                                </Action>
+                                <Action
+                                  label="Copy"
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(part.text)
+                                  }
+                                >
+                                  <CopyIcon className="size-3" />
+                                </Action>
+                              </Actions>
+                            )}
                         </Fragment>
                       );
-                    case 'reasoning':
+                    case "reasoning":
                       return (
                         <Reasoning
-                          key={`${message.id}-${i}`}
                           className="w-full"
-                          isStreaming={status === 'streaming' && i === message.parts.length - 1 && message.id === messages.at(-1)?.id}
+                          isStreaming={
+                            status === "streaming" &&
+                            i === message.parts.length - 1 &&
+                            message.id === messages.at(-1)?.id
+                          }
+                          key={`${message.id}-${i}`}
                         >
                           <ReasoningTrigger />
                           <ReasoningContent>{part.text}</ReasoningContent>
@@ -160,12 +136,17 @@ const ChatBotDemo = () => {
                 })}
               </div>
             ))}
-            {status === 'submitted' && <Loader />}
+            {status === "submitted" && <Loader />}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
 
-        <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop multiple>
+        <PromptInput
+          className="mt-4"
+          globalDrop
+          multiple
+          onSubmit={handleSubmit}
+        >
           <PromptInputHeader>
             <PromptInputAttachments>
               {(attachment) => <PromptInputAttachment data={attachment} />}
@@ -196,14 +177,17 @@ const ChatBotDemo = () => {
                 </PromptInputModelSelectTrigger>
                 <PromptInputModelSelectContent>
                   {models.map((model) => (
-                    <PromptInputModelSelectItem key={model.value} value={model.value}>
+                    <PromptInputModelSelectItem
+                      key={model.value}
+                      value={model.value}
+                    >
                       {model.name}
                     </PromptInputModelSelectItem>
                   ))}
                 </PromptInputModelSelectContent>
               </PromptInputModelSelect>
             </PromptInputTools>
-            <PromptInputSubmit disabled={!input && !status} status={status} />
+            <PromptInputSubmit disabled={!(input || status)} status={status} />
           </PromptInputFooter>
         </PromptInput>
       </div>
