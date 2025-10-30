@@ -6,6 +6,9 @@ import type {
   ValidationRules,
 } from "./form-definition";
 
+const PHONE_PATTERN_REGEX =
+  /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/;
+const FIRST_CHAR_REGEX = /^./;
 /**
  * Convert a form definition to a Zod schema
  */
@@ -22,19 +25,18 @@ export function formDefinitionToZodSchema(
         fieldSchema = z.string().trim();
         break;
       case "email":
-        fieldSchema = z.string().email("Invalid email address").trim();
+        fieldSchema = z.email("Invalid email address").trim();
         break;
       case "phone":
         fieldSchema = z
           .string()
-          .regex(
-            /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/,
-            "Invalid phone number"
-          )
+          .regex(PHONE_PATTERN_REGEX, "Invalid phone number")
           .trim();
         break;
       case "url":
-        fieldSchema = z.string().url("Invalid URL").trim();
+        fieldSchema = z
+          .url("Invalid URL, it should start with http:// or https://")
+          .trim();
         break;
       case "checkbox":
         fieldSchema = z.boolean();
@@ -45,7 +47,11 @@ export function formDefinitionToZodSchema(
 
     // Apply validation rules
     if (field.validation) {
-      fieldSchema = applyValidationRules(fieldSchema, field.validation, field.type);
+      fieldSchema = applyValidationRules(
+        fieldSchema,
+        field.validation,
+        field.type
+      );
     }
 
     // Apply required or optional
@@ -56,12 +62,10 @@ export function formDefinitionToZodSchema(
       } else {
         shape[field.name] = fieldSchema.min(1, `${field.label} is required`);
       }
+    } else if (field.type === "checkbox") {
+      shape[field.name] = fieldSchema.default(false);
     } else {
-      if (field.type === "checkbox") {
-        shape[field.name] = fieldSchema.default(false);
-      } else {
-        shape[field.name] = fieldSchema.optional();
-      }
+      shape[field.name] = fieldSchema.optional();
     }
   }
 
@@ -97,12 +101,17 @@ function applyValidationRules(
     );
   }
 
-  if (rules.min !== undefined && fieldType !== "checkbox") {
-    if (fieldType === "text" || fieldType === "email" || fieldType === "phone" || fieldType === "url") {
-      // For string types, min/max are typically length validations
-      // But if specified as min/max, could be interpreted differently
-      // For now, we'll ignore min/max for string types (use minLength/maxLength instead)
-    }
+  if (
+    rules.min !== undefined &&
+    fieldType !== "checkbox" &&
+    (fieldType === "text" ||
+      fieldType === "email" ||
+      fieldType === "phone" ||
+      fieldType === "url")
+  ) {
+    // For string types, min/max are typically length validations
+    // But if specified as min/max, could be interpreted differently
+    // For now, we'll ignore min/max for string types (use minLength/maxLength instead)
   }
 
   if (rules.max !== undefined && fieldType !== "checkbox") {
@@ -121,6 +130,7 @@ function applyValidationRules(
  * Convert a Zod schema to a form definition
  * Useful for editing existing forms
  */
+// biome-ignore lint/complexity/noForEach: i know.. its ok
 export function zodSchemaToFormDefinition(
   schema: z.ZodObject<z.ZodRawShape>
 ): FormDefinition {
@@ -141,8 +151,9 @@ export function zodSchemaToFormDefinition(
     } else if (typeName === "ZodString") {
       const stringSchema = zodType as z.ZodString;
       // Check if it has email validation
-      const checks = (stringSchema._def as { checks?: Array<{ kind?: string }> })
-        ?.checks;
+      const checks = (
+        stringSchema._def as { checks?: Array<{ kind?: string }> }
+      )?.checks;
       if (checks?.some((check) => check.kind === "email")) {
         fieldType = "email";
       } else if (checks?.some((check) => check.kind === "url")) {
@@ -201,10 +212,8 @@ export function zodSchemaToFormDefinition(
  */
 function formatFieldLabel(fieldName: string): string {
   const CAMEL_CASE_REGEX = /([A-Z])/g;
-  const FIRST_CHAR_REGEX = /^./;
   return fieldName
     .replace(CAMEL_CASE_REGEX, " $1")
     .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
     .trim();
 }
-

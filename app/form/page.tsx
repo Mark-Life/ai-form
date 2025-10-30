@@ -24,6 +24,7 @@ import {
   PromptInputAttachment,
   PromptInputAttachments,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
   PromptInputHeader,
   type PromptInputMessage,
@@ -318,21 +319,7 @@ const ChatBotDemo = () => {
         {/* Chat - Right Column */}
         <div className="flex w-1/2 flex-col">
           <Conversation className="h-full rounded-lg border bg-input/30">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  className="absolute top-4 right-4 z-10 size-8"
-                  onClick={() => setAutoPlayback(!autoPlayback)}
-                  size="icon"
-                  type="button"
-                  variant={autoPlayback ? "default" : "outline"}
-                >
-                  <Volume2Icon className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Audio playback</TooltipContent>
-            </Tooltip>
-            <ConversationContent className="mt-8">
+            <ConversationContent>
               {messages.length === 0 && (
                 <div className="absolute inset-0 mx-auto flex max-w-md flex-col items-center justify-center gap-4">
                   <p className="text-balance text-center text-muted-foreground text-sm">
@@ -448,6 +435,17 @@ const ChatBotDemo = () => {
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PromptInputButton
+                      onClick={() => setAutoPlayback(!autoPlayback)}
+                      variant={autoPlayback ? "default" : "ghost"}
+                    >
+                      <Volume2Icon className="size-4" />
+                    </PromptInputButton>
+                  </TooltipTrigger>
+                  <TooltipContent>Audio playback</TooltipContent>
+                </Tooltip>
                 <PromptInputSpeechButton
                   onTranscriptionChange={(text) => setInput(text)}
                   textareaRef={textareaRef}
