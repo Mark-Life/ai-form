@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getFieldNames, getFieldType } from "../schema-utils";
+import { getFieldNames, getFieldType } from "../utils/schema-utils";
 
 function processFieldValue(
   value: unknown,

@@ -25,8 +25,8 @@ import type {
   FieldType,
   FormDefinition,
   FormFieldDefinition,
-} from "@/lib/form-definition";
-import { loadFormFromStorage, saveFormToStorage } from "@/lib/form-definition";
+} from "@/lib/utils";
+import { loadFormFromStorage, saveFormToStorage } from "@/lib/utils";
 
 const CAMEL_CASE_REGEX = /^[a-z][a-zA-Z0-9]*$/;
 const RANDOM_SUBSTRING_START = 2;

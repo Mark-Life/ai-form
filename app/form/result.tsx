@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatFieldLabel } from "@/lib/schema-utils";
+import { formatFieldLabel } from "@/lib/utils";
 
 type FormResultProps = {
   formData: Record<string, unknown>;
@@ -37,7 +37,7 @@ export function FormResult({ formData, onReset }: FormResultProps) {
       <CardContent className="space-y-4">
         <div className="space-y-3">
           {Object.entries(formData).map(([key, value]) => (
-            <div key={key} className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" key={key}>
               <span className="font-medium text-muted-foreground text-sm">
                 {formatFieldLabel(key)}
               </span>

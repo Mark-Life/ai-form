@@ -7,9 +7,9 @@ import {
 } from "ai";
 import type { z } from "zod";
 import { formSchema as demoFormSchema } from "@/lib/demo-schema";
-import { formDefinitionToZodSchema } from "@/lib/form-builder-utils";
-import type { FormDefinition } from "@/lib/form-definition";
 import { createTools } from "@/lib/tools";
+import type { FormDefinition } from "@/lib/utils";
+import { formDefinitionToZodSchema } from "@/lib/utils";
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;

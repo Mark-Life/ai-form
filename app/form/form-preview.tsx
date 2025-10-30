@@ -14,11 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  formatFieldLabel,
-  getFieldNames,
-  getFieldType,
-} from "@/lib/schema-utils";
+import { formatFieldLabel, getFieldNames, getFieldType } from "@/lib/utils";
 
 type FormPreviewProps<T extends z.ZodObject<z.ZodRawShape>> = {
   form: UseFormReturn<z.infer<T>>;
