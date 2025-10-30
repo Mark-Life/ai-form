@@ -53,6 +53,47 @@ import { loadFormFromStorage } from "@/lib/form-definition";
 import { getDefaultValues } from "@/lib/schema-utils";
 import { FormPreview } from "./form-preview";
 
+function parseFillManyResults(
+  result: unknown
+): Record<
+  string,
+  | { success: true; value: string | number | boolean }
+  | { success: false; error: string }
+> | null {
+  try {
+    const parsedResult =
+      typeof result === "string" ? JSON.parse(result) : result;
+
+    if (
+      parsedResult &&
+      typeof parsedResult === "object" &&
+      "results" in parsedResult &&
+      typeof parsedResult.results === "object"
+    ) {
+      return parsedResult.results as Record<
+        string,
+        | { success: true; value: string | number | boolean }
+        | { success: false; error: string }
+      >;
+    }
+  } catch {
+    // Silently ignore parsing errors
+  }
+  return null;
+}
+
+function isSuccessfulFieldResult(
+  fieldResult: unknown
+): fieldResult is { success: true; value: string | number | boolean } {
+  return (
+    fieldResult !== null &&
+    typeof fieldResult === "object" &&
+    "success" in fieldResult &&
+    fieldResult.success === true &&
+    "value" in fieldResult
+  );
+}
+
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [submittedData, setSubmittedData] = useState<Record<
@@ -129,33 +170,93 @@ const ChatBotDemo = () => {
     [form, formSchema]
   );
 
-  const processToolPart = useCallback(
-    (part: ToolUIPart, messageId: string) => {
-      if (part.type === "tool-updateField") {
-        const toolPart = part as unknown as {
-          type: "tool-updateField";
-          toolCallId: string;
-          state: string;
-          output?: unknown;
-        };
-        const toolResultId = `${messageId}-${toolPart.toolCallId}`;
-        if (toolPart.state === "output-available" && toolPart.output) {
-          processUpdateFieldResult(toolPart.output, toolResultId);
-        }
-      } else if (part.type === "tool-submitForm") {
-        const toolPart = part as unknown as {
-          type: "tool-submitForm";
-          toolCallId: string;
-          state: string;
-          output?: unknown;
-        };
-        const toolResultId = `${messageId}-${toolPart.toolCallId}`;
-        if (toolPart.state === "output-available" && toolPart.output) {
-          processSubmitFormResult(toolResultId);
+  const processFillManyResult = useCallback(
+    (result: unknown, toolResultId: string): void => {
+      if (processedToolResultsRef.current.has(toolResultId)) {
+        return;
+      }
+      processedToolResultsRef.current.add(toolResultId);
+
+      const results = parseFillManyResults(result);
+      if (!results) {
+        return;
+      }
+
+      // Update form fields for successful results
+      for (const [fieldName, fieldResult] of Object.entries(results)) {
+        if (isSuccessfulFieldResult(fieldResult)) {
+          form.setValue(
+            fieldName as keyof FormData,
+            fieldResult.value as FormData[keyof FormData],
+            {
+              shouldValidate: true,
+            }
+          );
         }
       }
     },
-    [processUpdateFieldResult, processSubmitFormResult]
+    [form]
+  );
+
+  const handleUpdateFieldTool = useCallback(
+    (part: ToolUIPart, messageId: string) => {
+      const toolPart = part as unknown as {
+        type: "tool-updateField";
+        toolCallId: string;
+        state: string;
+        output?: unknown;
+      };
+      const toolResultId = `${messageId}-${toolPart.toolCallId}`;
+      if (toolPart.state === "output-available" && toolPart.output) {
+        processUpdateFieldResult(toolPart.output, toolResultId);
+      }
+    },
+    [processUpdateFieldResult]
+  );
+
+  const handleSubmitFormTool = useCallback(
+    (part: ToolUIPart, messageId: string) => {
+      const toolPart = part as unknown as {
+        type: "tool-submitForm";
+        toolCallId: string;
+        state: string;
+        output?: unknown;
+      };
+      const toolResultId = `${messageId}-${toolPart.toolCallId}`;
+      if (toolPart.state === "output-available" && toolPart.output) {
+        processSubmitFormResult(toolResultId);
+      }
+    },
+    [processSubmitFormResult]
+  );
+
+  const handleFillManyTool = useCallback(
+    (part: ToolUIPart, messageId: string) => {
+      const toolPart = part as unknown as {
+        type: "tool-fillMany";
+        toolCallId: string;
+        state: string;
+        output?: unknown;
+      };
+      const toolResultId = `${messageId}-${toolPart.toolCallId}`;
+      if (toolPart.state === "output-available" && toolPart.output) {
+        processFillManyResult(toolPart.output, toolResultId);
+      }
+    },
+    [processFillManyResult]
+  );
+
+  const processToolPart = useCallback(
+    (part: ToolUIPart, messageId: string) => {
+      if (part.type === "tool-updateField") {
+        handleUpdateFieldTool(part, messageId);
+      } else if (part.type === "tool-submitForm") {
+        handleSubmitFormTool(part, messageId);
+      } else if (part.type === "tool-fillMany") {
+        handleFillManyTool(part, messageId);
+      }
+    },
+    [handleUpdateFieldTool, handleSubmitFormTool, handleFillManyTool]
   );
 
   // Handle tool results from messages
@@ -168,7 +269,8 @@ const ChatBotDemo = () => {
       for (const part of message.parts) {
         if (
           part.type === "tool-updateField" ||
-          part.type === "tool-submitForm"
+          part.type === "tool-submitForm" ||
+          part.type === "tool-fillMany"
         ) {
           processToolPart(part, message.id);
         }
@@ -296,13 +398,94 @@ const ChatBotDemo = () => {
     return "Updated field";
   };
 
+  const extractFillManyResults = (
+    parsedOutput: unknown
+  ): Record<
+    string,
+    | { success: true; value: string | number | boolean }
+    | { success: false; error: string }
+  > | null => {
+    if (
+      parsedOutput &&
+      typeof parsedOutput === "object" &&
+      "results" in parsedOutput &&
+      typeof parsedOutput.results === "object"
+    ) {
+      return parsedOutput.results as Record<
+        string,
+        | { success: true; value: string | number | boolean }
+        | { success: false; error: string }
+      >;
+    }
+    return null;
+  };
+
+  const buildFillManyStatusMessage = (
+    results: Record<
+      string,
+      | { success: true; value: string | number | boolean }
+      | { success: false; error: string }
+    >
+  ): string => {
+    const successfulFields = Object.entries(results)
+      .filter(([, result]) => result.success)
+      .map(([name]) => name);
+    const failedFields = Object.entries(results)
+      .filter(([, result]) => !result.success)
+      .map(([name, result]) => ({
+        name,
+        error: result.success === false ? result.error : "",
+      }));
+
+    if (successfulFields.length > 0 && failedFields.length === 0) {
+      return `Updated fields: ${successfulFields.join(", ")}`;
+    }
+    if (successfulFields.length > 0 && failedFields.length > 0) {
+      return `Updated: ${successfulFields.join(", ")}. Failed: ${failedFields.map((f) => `${f.name} (${f.error})`).join(", ")}`;
+    }
+    if (failedFields.length > 0) {
+      return `Failed to update: ${failedFields.map((f) => `${f.name} (${f.error})`).join(", ")}`;
+    }
+    return "Updated multiple fields";
+  };
+
+  const getFillManyMessage = (
+    toolOutput: unknown,
+    errorText?: string
+  ): string => {
+    if (errorText) {
+      return `Failed to update multiple fields: ${errorText}`;
+    }
+
+    const parsedOutput = parseOutput(toolOutput);
+    if (
+      parsedOutput &&
+      typeof parsedOutput === "object" &&
+      "message" in parsedOutput &&
+      typeof parsedOutput.message === "string"
+    ) {
+      return parsedOutput.message;
+    }
+
+    const results = extractFillManyResults(parsedOutput);
+    if (results) {
+      return buildFillManyStatusMessage(results);
+    }
+
+    return "Updated multiple fields";
+  };
+
   const renderTool = (part: ToolUIPart, messageId: string, index: number) => {
-    if (part.type !== "tool-updateField" && part.type !== "tool-submitForm") {
+    if (
+      part.type !== "tool-updateField" &&
+      part.type !== "tool-submitForm" &&
+      part.type !== "tool-fillMany"
+    ) {
       return null;
     }
 
     const toolPart = part as unknown as {
-      type: "tool-updateField" | "tool-submitForm";
+      type: "tool-updateField" | "tool-submitForm" | "tool-fillMany";
       toolCallId: string;
       state: ToolUIPart["state"];
       input?: unknown;
@@ -318,14 +501,18 @@ const ChatBotDemo = () => {
       return null;
     }
 
-    const messageText =
-      toolPart.type === "tool-updateField"
-        ? getUpdateFieldMessage(
-            toolPart.input,
-            toolPart.output,
-            toolPart.errorText
-          )
-        : "Form submitted";
+    let messageText: string;
+    if (toolPart.type === "tool-updateField") {
+      messageText = getUpdateFieldMessage(
+        toolPart.input,
+        toolPart.output,
+        toolPart.errorText
+      );
+    } else if (toolPart.type === "tool-fillMany") {
+      messageText = getFillManyMessage(toolPart.output, toolPart.errorText);
+    } else {
+      messageText = "Form submitted";
+    }
 
     return (
       <Message from="assistant" key={`${messageId}-${index}`}>
@@ -464,7 +651,8 @@ const ChatBotDemo = () => {
                       default:
                         if (
                           part.type === "tool-updateField" ||
-                          part.type === "tool-submitForm"
+                          part.type === "tool-submitForm" ||
+                          part.type === "tool-fillMany"
                         ) {
                           return renderTool(part, message.id, i);
                         }

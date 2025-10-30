@@ -32,10 +32,7 @@ export function formDefinitionToZodSchema(
             .trim();
           break;
         case "url":
-          fieldSchema = z
-            .string()
-            .url("Invalid URL, it should start with http:// or https://")
-            .trim();
+          fieldSchema = z.string().url("Invalid URL, include protocol").trim();
           break;
         case "checkbox":
           fieldSchema = z.boolean();

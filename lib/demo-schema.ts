@@ -16,9 +16,7 @@ export const formSchema = z.object({
     .max(MAX_LENGTH, "Last name must be at most 50 characters"),
   age: z.number().min(MIN_AGE, "You must be at least 18 years old"),
   email: z.email("Invalid email address"),
-  website: z.url(
-    "Invalid website URL, it should start with http:// or https://"
-  ),
+  website: z.url("Invalid website URL, include protocol"),
 });
 
 export type FormData = z.infer<typeof formSchema>;
