@@ -4,10 +4,10 @@ import type {
   FormDefinition,
   ValidationRules,
 } from "./form-definition";
+import { formatFieldLabel } from "./schema-utils";
 
 const PHONE_PATTERN_REGEX =
   /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/;
-const FIRST_CHAR_REGEX = /^./;
 /**
  * Convert a form definition to a Zod schema
  */
@@ -214,15 +214,4 @@ export function zodSchemaToFormDefinition(
       validation: Object.keys(validation).length > 0 ? validation : undefined,
     };
   });
-}
-
-/**
- * Format a camelCase field name to a readable label
- */
-function formatFieldLabel(fieldName: string): string {
-  const CAMEL_CASE_REGEX = /([A-Z])/g;
-  return fieldName
-    .replace(CAMEL_CASE_REGEX, " $1")
-    .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
-    .trim();
 }

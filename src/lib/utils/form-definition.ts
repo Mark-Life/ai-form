@@ -43,3 +43,21 @@ export function loadFormFromStorage(): FormDefinition | null {
     return null;
   }
 }
+
+/**
+ * Initialize localStorage with demo schema if it doesn't exist
+ * Returns true if initialization happened, false if data already exists
+ */
+export function initializeFormStorage(
+  demoFormDefinition: FormDefinition
+): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const existing = loadFormFromStorage();
+  if (existing !== null) {
+    return false;
+  }
+  saveFormToStorage(demoFormDefinition);
+  return true;
+}

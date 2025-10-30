@@ -112,7 +112,7 @@ function getSystemPrompt(formSchema: z.ZodObject<z.ZodRawShape>): string {
     The form has the following fields:
     ${fieldDescriptions.join("\n")}
 
-    Note, url should start with https://, but user often provide a domain name without the protocol.
+    Note, url should include a protocol, but user often provide a domain name without a protocol, so its your job to add it to the field.
 
     Be conversational and friendly. Instead of saying "fill in the form", ask a user as you are talking to them and fill it yourself. Don't include some of obvious validation rules like min and max 50 characters.
 
