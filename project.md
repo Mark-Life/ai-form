@@ -11,7 +11,7 @@ Split-view interface with form preview (left) and AI chat (right). AI agent uses
 **API Route** (`app/api/chat/route.ts`)
 
 - Create Next.js API route using Vercel AI SDK
-- Use `generateText` with `model: 'openai/gpt-5'` via Vercel AI Gateway
+- Use `streamText`
 - Handle tool calls for field updates and form submission
 - Stream responses using AI SDK streaming utilities
 
@@ -53,27 +53,27 @@ Split-view interface with form preview (left) and AI chat (right). AI agent uses
 
 ### 3. UI Components
 
-**Main Form Chat Component** (`components/form-chat.tsx`)
+**Main Form Chat Component** (`components/form/chat.tsx`)
 
 - Split-view layout (form left, chat right)
 - Integrates Conversation, Message, PromptInput from ai-elements
 - Connects chat to form state updates
 - Handles tool call execution and streaming
 
-**Form Preview Component** (`components/form-preview.tsx`)
+**Form Preview Component** (`components/form/preview.tsx`)
 
 - Renders form fields based on schema
 - Auto-updates as fields are filled via tool calls
 - Shows validation errors inline
 - Submit button that triggers submission (disabled until valid)
 
-**Form Result Component** (`components/form-result.tsx`)
+**Form Result Component** (`components/form/result.tsx`)
 
 - Displays completed form data
 - Shows reset button to start over
 - Nice layout for reviewing submitted data
 
-**Field Components** (`components/form-fields/`)
+**Field Components** (`components/form/fields/`)
 
 - Individual field components (TextInput, Select, etc.)
 - Connected to form state
