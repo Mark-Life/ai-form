@@ -39,13 +39,6 @@ import {
 //   ReasoningTrigger,
 // } from "@/components/ai-elements/reasoning";
 import { Response } from "@/components/ai-elements/response";
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
 import { FormResult } from "@/components/form/result";
 import { Button } from "@/components/ui/button";
 import {
@@ -239,40 +232,110 @@ const ChatBotDemo = () => {
     processedToolResultsRef.current.clear();
   };
 
-  const renderTool = (part: ToolUIPart, messageId: string, index: number) => {
-    if (part.type === "tool-updateField" || part.type === "tool-submitForm") {
-      const toolPart = part as unknown as {
-        type: "tool-updateField" | "tool-submitForm";
-        toolCallId: string;
-        state: ToolUIPart["state"];
-        input?: unknown;
-        output?: unknown;
-        errorText?: string;
-      };
-      const title =
-        toolPart.type === "tool-updateField" ? "updateField" : "submitForm";
-      return (
-        <Tool defaultOpen key={`${messageId}-${index}`}>
-          <ToolHeader
-            state={toolPart.state}
-            title={title}
-            type={toolPart.type}
-          />
-          <ToolContent>
-            {"input" in toolPart && toolPart.input !== undefined && (
-              <ToolInput input={toolPart.input} />
-            )}
-            {(toolPart.output || toolPart.errorText) && (
-              <ToolOutput
-                errorText={toolPart.errorText}
-                output={toolPart.output}
-              />
-            )}
-          </ToolContent>
-        </Tool>
-      );
+  const extractFieldNameFromObject = (obj: unknown): string => {
+    if (obj && typeof obj === "object") {
+      const record = obj as Record<string, unknown>;
+      if ("fieldName" in record && typeof record.fieldName === "string") {
+        return record.fieldName;
+      }
     }
-    return null;
+    return "";
+  };
+
+  const parseOutput = (output: unknown): unknown => {
+    if (!output) {
+      return null;
+    }
+    if (typeof output === "string") {
+      try {
+        return JSON.parse(output);
+      } catch {
+        return null;
+      }
+    }
+    return output;
+  };
+
+  const extractErrorFromOutput = (parsedOutput: unknown): string => {
+    if (
+      parsedOutput &&
+      typeof parsedOutput === "object" &&
+      "error" in parsedOutput &&
+      typeof parsedOutput.error === "string"
+    ) {
+      return parsedOutput.error;
+    }
+    return "";
+  };
+
+  const checkOutputHasError = (parsedOutput: unknown): boolean =>
+    parsedOutput !== null &&
+    typeof parsedOutput === "object" &&
+    "success" in parsedOutput &&
+    parsedOutput.success === false;
+
+  const getUpdateFieldMessage = (
+    toolInput: unknown,
+    toolOutput: unknown,
+    errorText?: string
+  ): string => {
+    const inputName = extractFieldNameFromObject(toolInput);
+    const parsedOutput = parseOutput(toolOutput);
+    const outputName = extractFieldNameFromObject(parsedOutput);
+
+    const fieldNameValue = outputName || inputName;
+    const hasError = Boolean(errorText) || checkOutputHasError(parsedOutput);
+
+    if (hasError) {
+      const errorMsg = errorText || extractErrorFromOutput(parsedOutput);
+      return `Failed to update field ${fieldNameValue}${errorMsg ? `: ${errorMsg}` : ""}`;
+    }
+    if (fieldNameValue) {
+      return `Updated field: ${fieldNameValue}`;
+    }
+    return "Updated field";
+  };
+
+  const renderTool = (part: ToolUIPart, messageId: string, index: number) => {
+    if (part.type !== "tool-updateField" && part.type !== "tool-submitForm") {
+      return null;
+    }
+
+    const toolPart = part as unknown as {
+      type: "tool-updateField" | "tool-submitForm";
+      toolCallId: string;
+      state: ToolUIPart["state"];
+      input?: unknown;
+      output?: unknown;
+      errorText?: string;
+    };
+
+    // Only show message when output is available or there's an error
+    if (
+      toolPart.state !== "output-available" &&
+      toolPart.state !== "output-error"
+    ) {
+      return null;
+    }
+
+    const messageText =
+      toolPart.type === "tool-updateField"
+        ? getUpdateFieldMessage(
+            toolPart.input,
+            toolPart.output,
+            toolPart.errorText
+          )
+        : "Form submitted";
+
+    return (
+      <Message from="assistant" key={`${messageId}-${index}`}>
+        <MessageContent>
+          <Response className="text-muted-foreground text-sm">
+            {messageText}
+          </Response>
+        </MessageContent>
+      </Message>
+    );
   };
 
   const handleSubmit = (message: PromptInputMessage) => {
