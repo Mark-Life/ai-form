@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ToolUIPart } from "ai";
-import { CopyIcon, RefreshCcwIcon } from "lucide-react";
+import { CopyIcon, PlayIcon, RefreshCcwIcon, Volume2Icon } from "lucide-react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Action, Actions } from "@/components/ai-elements/actions";
@@ -26,6 +26,7 @@ import {
   PromptInputFooter,
   PromptInputHeader,
   type PromptInputMessage,
+  PromptInputSpeechButton,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -45,6 +46,12 @@ import {
 } from "@/components/ai-elements/tool";
 import { FormResult } from "@/components/form/result";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useSpeech } from "@/hooks/use-speech";
 import { type FormData, formSchema } from "@/lib/demo-schema";
 import { getDefaultValues } from "@/lib/schema-utils";
 import { FormPreview } from "./form-preview";
@@ -52,8 +59,12 @@ import { FormPreview } from "./form-preview";
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [submittedData, setSubmittedData] = useState<FormData | null>(null);
+  const [autoPlayback, setAutoPlayback] = useState(false);
   const { messages, sendMessage, status, regenerate } = useChat();
   const processedToolResultsRef = useRef<Set<string>>(new Set());
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const { playSpeech, stopSpeech, isPlaying, isLoading } = useSpeech();
+  const lastProcessedMessageIdRef = useRef<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -158,6 +169,36 @@ const ChatBotDemo = () => {
     }
   }, [messages, processToolPart]);
 
+  // Auto-playback logic
+  useEffect(() => {
+    if (!autoPlayback || messages.length === 0) {
+      return;
+    }
+
+    const lastMessage = messages.at(-1);
+    if (!lastMessage) {
+      return;
+    }
+    if (
+      lastMessage.role !== "assistant" ||
+      lastMessage.id === lastProcessedMessageIdRef.current
+    ) {
+      return;
+    }
+
+    // Check if message is complete (not streaming)
+    if (status === "streaming" && lastMessage.id === messages.at(-1)?.id) {
+      return;
+    }
+
+    // Find text part
+    const textPart = lastMessage.parts.find((part) => part.type === "text");
+    if (textPart && textPart.type === "text" && textPart.text) {
+      lastProcessedMessageIdRef.current = lastMessage.id;
+      playSpeech(textPart.text);
+    }
+  }, [messages, status, autoPlayback, playSpeech]);
+
   const handleStart = () => {
     sendMessage(
       {
@@ -258,6 +299,20 @@ const ChatBotDemo = () => {
         {/* Chat - Right Column */}
         <div className="flex w-1/2 flex-col">
           <Conversation className="h-full rounded-lg border bg-input/30">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className="absolute top-4 right-4 z-10"
+                  onClick={() => setAutoPlayback(!autoPlayback)}
+                  size="icon"
+                  type="button"
+                  variant={autoPlayback ? "default" : "outline"}
+                >
+                  <Volume2Icon className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Audio playback</TooltipContent>
+            </Tooltip>
             <ConversationContent>
               {messages.length === 0 && (
                 <div className="absolute inset-0 mx-auto flex max-w-md flex-col items-center justify-center gap-4">
@@ -282,25 +337,44 @@ const ChatBotDemo = () => {
                                 <Response>{part.text}</Response>
                               </MessageContent>
                             </Message>
-                            {message.role === "assistant" &&
-                              i === messages.length - 1 && (
-                                <Actions className="mt-2">
-                                  <Action
-                                    label="Retry"
-                                    onClick={() => regenerate()}
-                                  >
-                                    <RefreshCcwIcon className="size-3" />
-                                  </Action>
-                                  <Action
-                                    label="Copy"
-                                    onClick={() =>
-                                      navigator.clipboard.writeText(part.text)
+                            {message.role === "assistant" && (
+                              <Actions className="mt-2">
+                                {i === message.parts.length - 1 &&
+                                  message.id === messages.at(-1)?.id && (
+                                    <>
+                                      <Action
+                                        label="Retry"
+                                        onClick={() => regenerate()}
+                                      >
+                                        <RefreshCcwIcon className="size-3" />
+                                      </Action>
+                                      <Action
+                                        label="Copy"
+                                        onClick={() =>
+                                          navigator.clipboard.writeText(
+                                            part.text
+                                          )
+                                        }
+                                      >
+                                        <CopyIcon className="size-3" />
+                                      </Action>
+                                    </>
+                                  )}
+                                <Action
+                                  disabled={isLoading}
+                                  label="Play"
+                                  onClick={() => {
+                                    if (isPlaying) {
+                                      stopSpeech();
+                                    } else {
+                                      playSpeech(part.text);
                                     }
-                                  >
-                                    <CopyIcon className="size-3" />
-                                  </Action>
-                                </Actions>
-                              )}
+                                  }}
+                                >
+                                  <PlayIcon className="size-3" />
+                                </Action>
+                              </Actions>
+                            )}
                           </Fragment>
                         );
                       case "reasoning":
@@ -349,11 +423,16 @@ const ChatBotDemo = () => {
             <PromptInputBody>
               <PromptInputTextarea
                 onChange={(e) => setInput(e.target.value)}
+                ref={textareaRef}
                 value={input}
               />
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
+                <PromptInputSpeechButton
+                  onTranscriptionChange={(text) => setInput(text)}
+                  textareaRef={textareaRef}
+                />
                 <PromptInputActionMenu>
                   <PromptInputActionMenuTrigger />
                   <PromptInputActionMenuContent>

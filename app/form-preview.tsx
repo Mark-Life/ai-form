@@ -12,7 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { formSchema, type FormData } from "@/lib/demo-schema";
+import { type FormData, formSchema } from "@/lib/demo-schema";
 import {
   formatFieldLabel,
   getFieldNames,
@@ -40,12 +40,12 @@ export function FormPreview({ form, onSubmit }: FormPreviewProps) {
         {fieldNames.map((fieldName) => {
           const fieldType = getFieldType(formSchema, fieldName);
           const label = formatFieldLabel(fieldName as string);
-          const placeholder = `Enter your ${label.toLowerCase()}`;
+          const placeholder = `Enter ${label.toLowerCase()}`;
 
           return (
             <FormField
-              key={fieldName as string}
               control={form.control}
+              key={fieldName as string}
               name={fieldName}
               render={({ field, fieldState }) => (
                 <FormItem>
@@ -55,23 +55,25 @@ export function FormPreview({ form, onSubmit }: FormPreviewProps) {
                       <Input
                         {...field}
                         aria-invalid={fieldState.invalid}
-                        placeholder={placeholder}
-                        type={fieldType === "number" ? "number" : "text"}
-                        value={
-                          fieldType === "number" && field.value === 0
-                            ? ""
-                            : field.value ?? ""
-                        }
                         onChange={(e) => {
                           if (fieldType === "number") {
                             const numValue = e.target.value
                               ? Number.parseFloat(e.target.value)
                               : 0;
-                            field.onChange(Number.isNaN(numValue) ? 0 : numValue);
+                            field.onChange(
+                              Number.isNaN(numValue) ? 0 : numValue
+                            );
                           } else {
                             field.onChange(e.target.value);
                           }
                         }}
+                        placeholder={placeholder}
+                        type={fieldType === "number" ? "number" : "text"}
+                        value={
+                          fieldType === "number" && field.value === 0
+                            ? ""
+                            : (field.value ?? "")
+                        }
                       />
                     </FormControl>
                     {fieldState.invalid && <FormMessage />}
@@ -82,9 +84,9 @@ export function FormPreview({ form, onSubmit }: FormPreviewProps) {
           );
         })}
         <Button
-          type="submit"
-          disabled={!form.formState.isValid}
           className="w-full"
+          disabled={!form.formState.isValid}
+          type="submit"
         >
           Submit Form
         </Button>
