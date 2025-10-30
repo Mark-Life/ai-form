@@ -7,9 +7,9 @@
       "!dist",
       "!build",
       "!bun.lock",
-      "!components/ui/*",
-      "!components/ai-elements/*",
-      "!components/theme-provider.tsx"
+      "!**/components/ui/*",
+      "!**/components/ai-elements/*",
+      "!**/components/theme-provider.tsx"
     ]
   },
   "javascript": {

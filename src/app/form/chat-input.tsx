@@ -54,6 +54,7 @@ export function ChatInput({
       <PromptInputBody>
         <PromptInputTextarea
           onChange={(e) => onInputChange(e.target.value)}
+          placeholder="Fill in the form with any format"
           ref={textareaRef}
           value={input}
         />
