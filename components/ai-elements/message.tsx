@@ -29,7 +29,7 @@ const messageContentVariants = cva(
     variants: {
       variant: {
         contained: [
-          "max-w-[80%] px-4 py-3",
+          "max-w-[80%] px-4 py-2",
           "group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground",
           "group-[.is-assistant]:bg-secondary group-[.is-assistant]:text-foreground",
         ],

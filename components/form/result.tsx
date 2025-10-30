@@ -8,12 +8,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { FormData } from "@/lib/demo-schema";
+import { formatFieldLabel } from "@/lib/schema-utils";
 
 type FormResultProps = {
-  formData: FormData;
+  formData: Record<string, unknown>;
   onReset: () => void;
 };
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+  return String(value);
+}
 
 export function FormResult({ formData, onReset }: FormResultProps) {
   return (
@@ -26,18 +36,14 @@ export function FormResult({ formData, onReset }: FormResultProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
-          <div className="flex flex-col gap-1">
-            <span className="font-medium text-muted-foreground text-sm">
-              First Name
-            </span>
-            <span className="text-foreground">{formData.firstName}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="font-medium text-muted-foreground text-sm">
-              Last Name
-            </span>
-            <span className="text-foreground">{formData.lastName}</span>
-          </div>
+          {Object.entries(formData).map(([key, value]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="font-medium text-muted-foreground text-sm">
+                {formatFieldLabel(key)}
+              </span>
+              <span className="text-foreground">{formatValue(value)}</span>
+            </div>
+          ))}
         </div>
         <Button className="mt-6 w-full" onClick={onReset}>
           Reset Form

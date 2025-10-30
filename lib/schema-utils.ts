@@ -17,33 +17,109 @@ export function getFieldNames<T extends ZodObjectSchema>(
  * Detect if a Zod schema is a number type
  */
 function isNumberSchema(schema: z.ZodTypeAny): schema is z.ZodNumber {
-  return (
-    (schema as { _def?: { typeName?: string } })._def?.typeName === "ZodNumber"
-  );
+  return (schema._def as { type?: string })?.type === "number";
 }
 
 /**
  * Detect if a Zod schema is a string type
  */
 function isStringSchema(schema: z.ZodTypeAny): schema is z.ZodString {
-  return (
-    (schema as { _def?: { typeName?: string } })._def?.typeName === "ZodString"
-  );
+  return (schema._def as { type?: string })?.type === "string";
 }
 
 /**
- * Get the type of a field from the schema
+ * Detect if a Zod schema is a boolean type
  */
+function isBooleanSchema(schema: z.ZodTypeAny): schema is z.ZodBoolean {
+  return (schema._def as { type?: string })?.type === "boolean";
+}
+
+const PHONE_PATTERN_REGEX = /phone|tel|\+?\d/;
+
+/**
+ * Get detailed type information from a Zod string schema
+ */
+function getStringFieldSubtype(
+  schema: z.ZodString
+): "text" | "email" | "phone" | "url" {
+  const checks = (schema._def as { checks?: Array<{ kind?: string }> })?.checks;
+
+  if (!checks || checks.length === 0) {
+    return "text";
+  }
+
+  // Check for email validation
+  if (checks.some((check) => check.kind === "email")) {
+    return "email";
+  }
+
+  // Check for URL validation
+  if (checks.some((check) => check.kind === "url")) {
+    return "url";
+  }
+
+  // Check for phone pattern (regex check with phone-like pattern)
+  const regexCheck = checks.find((check) => check.kind === "regex");
+  if (regexCheck) {
+    const regexValue = (regexCheck as { regex?: RegExp })?.regex;
+    if (regexValue && PHONE_PATTERN_REGEX.test(regexValue.toString())) {
+      return "phone";
+    }
+  }
+
+  return "text";
+}
+
+/**
+ * Unwrap Zod schema wrappers (Optional, Default) to get the base type
+ */
+function unwrapSchema(fieldSchema: z.ZodTypeAny): z.ZodTypeAny {
+  const MAX_DEPTH = 10;
+  let current = fieldSchema;
+  let depth = 0;
+
+  while (current?._def && depth < MAX_DEPTH) {
+    const defType = (current._def as { type?: string })?.type;
+
+    // Found base type, stop unwrapping
+    if (defType === "boolean" || defType === "number" || defType === "string") {
+      return current;
+    }
+
+    // Unwrap Optional or Default wrappers
+    if (defType === "optional" || defType === "default") {
+      const innerType = (current._def as { innerType?: z.ZodTypeAny })
+        ?.innerType;
+      if (innerType) {
+        current = innerType;
+        depth += 1;
+      } else {
+        return current;
+      }
+    } else {
+      return current;
+    }
+  }
+
+  return current;
+}
+
 export function getFieldType<T extends ZodObjectSchema>(
   schema: T,
   fieldName: keyof z.infer<T>
-): "string" | "number" | "unknown" {
+): "text" | "email" | "phone" | "url" | "number" | "checkbox" | "unknown" {
   const fieldSchema = schema.shape[fieldName as string] as z.ZodTypeAny;
-  if (isNumberSchema(fieldSchema)) {
+  const unwrappedSchema = unwrapSchema(fieldSchema);
+
+  // Check types in order of specificity
+  if (isBooleanSchema(unwrappedSchema)) {
+    return "checkbox";
+  }
+  if (isNumberSchema(unwrappedSchema)) {
     return "number";
   }
-  if (isStringSchema(fieldSchema)) {
-    return "string";
+  if (isStringSchema(unwrappedSchema)) {
+    return getStringFieldSubtype(unwrappedSchema);
   }
   return "unknown";
 }
@@ -84,8 +160,16 @@ export function getDefaultValues<T extends ZodObjectSchema>(
       if (fieldType === "number") {
         return [key, 0];
       }
-      if (fieldType === "string") {
+      if (
+        fieldType === "text" ||
+        fieldType === "email" ||
+        fieldType === "phone" ||
+        fieldType === "url"
+      ) {
         return [key, ""];
+      }
+      if (fieldType === "checkbox") {
+        return [key, false];
       }
 
       // Return undefined for unknown types
