@@ -4,7 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ToolUIPart } from "ai";
 import { CopyIcon, RefreshCcwIcon } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Action, Actions } from "@/components/ai-elements/actions";
 import {
@@ -48,6 +48,7 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
+import { FormResult } from "@/components/form/result";
 import { Button } from "@/components/ui/button";
 import { type FormData, formSchema } from "@/lib/demo-schema";
 import { FormPreview } from "./form-preview";
@@ -66,6 +67,7 @@ const models = [
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(models[0].value);
+  const [submittedData, setSubmittedData] = useState<FormData | null>(null);
   const { messages, sendMessage, status, regenerate } = useChat();
   const processedToolResultsRef = useRef<Set<string>>(new Set());
 
@@ -77,9 +79,8 @@ const ChatBotDemo = () => {
     },
   });
 
-  // Handle tool results from messages
-  useEffect(() => {
-    const processToolResult = (result: unknown, toolResultId: string): void => {
+  const processUpdateFieldResult = useCallback(
+    (result: unknown, toolResultId: string): void => {
       if (processedToolResultsRef.current.has(toolResultId)) {
         return;
       }
@@ -108,31 +109,73 @@ const ChatBotDemo = () => {
       } catch {
         // Silently ignore parsing errors
       }
-    };
+    },
+    [form]
+  );
 
+  const processSubmitFormResult = useCallback(
+    (toolResultId: string): void => {
+      if (processedToolResultsRef.current.has(toolResultId)) {
+        return;
+      }
+      processedToolResultsRef.current.add(toolResultId);
+
+      const formValues = form.getValues();
+      const validationResult = formSchema.safeParse(formValues);
+
+      if (validationResult.success) {
+        setSubmittedData(validationResult.data);
+      }
+    },
+    [form]
+  );
+
+  const processToolPart = useCallback(
+    (part: ToolUIPart, messageId: string) => {
+      if (part.type === "tool-updateField") {
+        const toolPart = part as unknown as {
+          type: "tool-updateField";
+          toolCallId: string;
+          state: string;
+          output?: unknown;
+        };
+        const toolResultId = `${messageId}-${toolPart.toolCallId}`;
+        if (toolPart.state === "output-available" && toolPart.output) {
+          processUpdateFieldResult(toolPart.output, toolResultId);
+        }
+      } else if (part.type === "tool-submitForm") {
+        const toolPart = part as unknown as {
+          type: "tool-submitForm";
+          toolCallId: string;
+          state: string;
+          output?: unknown;
+        };
+        const toolResultId = `${messageId}-${toolPart.toolCallId}`;
+        if (toolPart.state === "output-available" && toolPart.output) {
+          processSubmitFormResult(toolResultId);
+        }
+      }
+    },
+    [processUpdateFieldResult, processSubmitFormResult]
+  );
+
+  // Handle tool results from messages
+  useEffect(() => {
     for (const message of messages) {
       if (message.role !== "assistant") {
         continue;
       }
 
       for (const part of message.parts) {
-        if (part.type === "tool-updateField") {
-          const toolPart = part as {
-            type: "tool-updateField";
-            toolCallId: string;
-            state: string;
-            input?: unknown;
-            output?: unknown;
-            errorText?: string;
-          };
-          const toolResultId = `${message.id}-${toolPart.toolCallId}`;
-          if (toolPart.state === "output-available" && toolPart.output) {
-            processToolResult(toolPart.output, toolResultId);
-          }
+        if (
+          part.type === "tool-updateField" ||
+          part.type === "tool-submitForm"
+        ) {
+          processToolPart(part, message.id);
         }
       }
     }
-  }, [messages, form]);
+  }, [messages, processToolPart]);
 
   const handleStart = () => {
     sendMessage(
@@ -145,6 +188,60 @@ const ChatBotDemo = () => {
         },
       }
     );
+  };
+
+  const handleFormSubmit = () => {
+    const formValues = form.getValues();
+    const validationResult = formSchema.safeParse(formValues);
+
+    if (validationResult.success) {
+      setSubmittedData(validationResult.data);
+    }
+  };
+
+  const handleReset = () => {
+    form.reset({
+      firstName: "",
+      lastName: "",
+    });
+    setSubmittedData(null);
+    processedToolResultsRef.current.clear();
+  };
+
+  const renderTool = (part: ToolUIPart, messageId: string, index: number) => {
+    if (part.type === "tool-updateField" || part.type === "tool-submitForm") {
+      const toolPart = part as unknown as {
+        type: "tool-updateField" | "tool-submitForm";
+        toolCallId: string;
+        state: ToolUIPart["state"];
+        input?: unknown;
+        output?: unknown;
+        errorText?: string;
+      };
+      const title =
+        toolPart.type === "tool-updateField" ? "updateField" : "submitForm";
+      return (
+        <Tool defaultOpen key={`${messageId}-${index}`}>
+          <ToolHeader
+            state={toolPart.state}
+            title={title}
+            type={toolPart.type}
+          />
+          <ToolContent>
+            {"input" in toolPart && toolPart.input !== undefined && (
+              <ToolInput input={toolPart.input} />
+            )}
+            {(toolPart.output || toolPart.errorText) && (
+              <ToolOutput
+                errorText={toolPart.errorText}
+                output={toolPart.output}
+              />
+            )}
+          </ToolContent>
+        </Tool>
+      );
+    }
+    return null;
   };
 
   const handleSubmit = (message: PromptInputMessage) => {
@@ -176,7 +273,11 @@ const ChatBotDemo = () => {
         <div className="flex w-1/2 flex-col">
           <div className="rounded-lg border bg-card p-6">
             <h2 className="mb-6 font-semibold text-lg">Form Preview</h2>
-            <FormPreview form={form} />
+            {submittedData ? (
+              <FormResult formData={submittedData} onReset={handleReset} />
+            ) : (
+              <FormPreview form={form} onSubmit={handleFormSubmit} />
+            )}
           </div>
         </div>
 
@@ -244,36 +345,11 @@ const ChatBotDemo = () => {
                           </Reasoning>
                         );
                       default:
-                        if (part.type === "tool-updateField") {
-                          const toolPart = part as {
-                            type: "tool-updateField";
-                            toolCallId: string;
-                            state: ToolUIPart["state"];
-                            input?: unknown;
-                            output?: unknown;
-                            errorText?: string;
-                          };
-                          return (
-                            <Tool defaultOpen key={`${message.id}-${i}`}>
-                              <ToolHeader
-                                state={toolPart.state}
-                                title="updateField"
-                                type={toolPart.type}
-                              />
-                              <ToolContent>
-                                {"input" in toolPart &&
-                                  toolPart.input !== undefined && (
-                                    <ToolInput input={toolPart.input} />
-                                  )}
-                                {(toolPart.output || toolPart.errorText) && (
-                                  <ToolOutput
-                                    errorText={toolPart.errorText}
-                                    output={toolPart.output}
-                                  />
-                                )}
-                              </ToolContent>
-                            </Tool>
-                          );
+                        if (
+                          part.type === "tool-updateField" ||
+                          part.type === "tool-submitForm"
+                        ) {
+                          return renderTool(part, message.id, i);
                         }
                         return null;
                     }
