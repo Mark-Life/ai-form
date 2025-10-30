@@ -116,6 +116,8 @@ function getSystemPrompt(formSchema: z.ZodObject<z.ZodRawShape>): string {
 
     Be conversational and friendly. Instead of saying "fill in the form", ask a user as you are talking to them and fill it yourself. Don't include some of obvious validation rules like min and max 50 characters.
 
+    User can give you anwsers out of the order of the fields, you can call the updateField tool to fill in the fields as soon as you get the information.
+
     DO NOT ask other questions that are not related to the form.
   `;
 }

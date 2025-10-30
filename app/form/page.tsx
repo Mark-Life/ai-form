@@ -33,11 +33,11 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
+// import {
+//   Reasoning,
+//   ReasoningContent,
+//   ReasoningTrigger,
+// } from "@/components/ai-elements/reasoning";
 import { Response } from "@/components/ai-elements/response";
 import {
   Tool,
@@ -383,21 +383,21 @@ const ChatBotDemo = () => {
                             )}
                           </Fragment>
                         );
-                      case "reasoning":
-                        return (
-                          <Reasoning
-                            className="w-full"
-                            isStreaming={
-                              status === "streaming" &&
-                              i === message.parts.length - 1 &&
-                              message.id === messages.at(-1)?.id
-                            }
-                            key={`${message.id}-${i}`}
-                          >
-                            <ReasoningTrigger />
-                            <ReasoningContent>{part.text}</ReasoningContent>
-                          </Reasoning>
-                        );
+                      // case "reasoning":
+                      //   return (
+                      //     <Reasoning
+                      //       className="w-full"
+                      //       isStreaming={
+                      //         status === "streaming" &&
+                      //         i === message.parts.length - 1 &&
+                      //         message.id === messages.at(-1)?.id
+                      //       }
+                      //       key={`${message.id}-${i}`}
+                      //     >
+                      //       <ReasoningTrigger />
+                      //       <ReasoningContent>{part.text}</ReasoningContent>
+                      //     </Reasoning>
+                      //   );
                       default:
                         if (
                           part.type === "tool-updateField" ||
