@@ -12,7 +12,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { FormData } from "@/lib/demo-schema";
+import { formSchema, type FormData } from "@/lib/demo-schema";
+import {
+  formatFieldLabel,
+  getFieldNames,
+  getFieldType,
+} from "@/lib/schema-utils";
 
 type FormPreviewProps = {
   form: UseFormReturn<FormData>;
@@ -27,47 +32,55 @@ export function FormPreview({ form, onSubmit }: FormPreviewProps) {
     })();
   };
 
+  const fieldNames = getFieldNames(formSchema);
+
   return (
     <Form {...form}>
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <FormField
-          control={form.control}
-          name="firstName"
-          render={({ field, fieldState }) => (
-            <FormItem>
-              <Field data-invalid={fieldState.invalid}>
-                <FormLabel>First Name</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter your first name"
-                  />
-                </FormControl>
-                {fieldState.invalid && <FormMessage />}
-              </Field>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="lastName"
-          render={({ field, fieldState }) => (
-            <FormItem>
-              <Field data-invalid={fieldState.invalid}>
-                <FormLabel>Last Name</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter your last name"
-                  />
-                </FormControl>
-                {fieldState.invalid && <FormMessage />}
-              </Field>
-            </FormItem>
-          )}
-        />
+        {fieldNames.map((fieldName) => {
+          const fieldType = getFieldType(formSchema, fieldName);
+          const label = formatFieldLabel(fieldName as string);
+          const placeholder = `Enter your ${label.toLowerCase()}`;
+
+          return (
+            <FormField
+              key={fieldName as string}
+              control={form.control}
+              name={fieldName}
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <Field data-invalid={fieldState.invalid}>
+                    <FormLabel>{label}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        aria-invalid={fieldState.invalid}
+                        placeholder={placeholder}
+                        type={fieldType === "number" ? "number" : "text"}
+                        value={
+                          fieldType === "number" && field.value === 0
+                            ? ""
+                            : field.value ?? ""
+                        }
+                        onChange={(e) => {
+                          if (fieldType === "number") {
+                            const numValue = e.target.value
+                              ? Number.parseFloat(e.target.value)
+                              : 0;
+                            field.onChange(Number.isNaN(numValue) ? 0 : numValue);
+                          } else {
+                            field.onChange(e.target.value);
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    {fieldState.invalid && <FormMessage />}
+                  </Field>
+                </FormItem>
+              )}
+            />
+          );
+        })}
         <Button
           type="submit"
           disabled={!form.formState.isValid}

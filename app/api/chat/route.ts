@@ -16,10 +16,8 @@ const MAX_TOOL_STEPS = 5;
 export async function POST(req: Request) {
   const {
     messages,
-    model, // do not delete in case we return model choosing feature
   }: {
     messages: UIMessage[];
-    model: string;
   } = await req.json();
 
   const result = streamText({

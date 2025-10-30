@@ -11,6 +11,8 @@ export const formSchema = z.object({
     .min(1, "Last name is required")
     .trim()
     .max(50, "Last name must be at most 50 characters"),
+  age: z.number().min(18, "You must be at least 18 years old"),
+  email: z.email("Invalid email address"),
 });
 
 export type FormData = z.infer<typeof formSchema>;

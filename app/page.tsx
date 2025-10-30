@@ -26,11 +26,6 @@ import {
   PromptInputFooter,
   PromptInputHeader,
   type PromptInputMessage,
-  PromptInputModelSelect,
-  PromptInputModelSelectContent,
-  PromptInputModelSelectItem,
-  PromptInputModelSelectTrigger,
-  PromptInputModelSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -51,32 +46,18 @@ import {
 import { FormResult } from "@/components/form/result";
 import { Button } from "@/components/ui/button";
 import { type FormData, formSchema } from "@/lib/demo-schema";
+import { getDefaultValues } from "@/lib/schema-utils";
 import { FormPreview } from "./form-preview";
-
-const models = [
-  {
-    name: "GPT 5 nano",
-    value: "openai/gpt-5-nano",
-  },
-  {
-    name: "Deepseek R1",
-    value: "deepseek/deepseek-r1",
-  },
-];
 
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
-  const [model, setModel] = useState<string>(models[0].value);
   const [submittedData, setSubmittedData] = useState<FormData | null>(null);
   const { messages, sendMessage, status, regenerate } = useChat();
   const processedToolResultsRef = useRef<Set<string>>(new Set());
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-    },
+    defaultValues: getDefaultValues(formSchema),
   });
 
   const processUpdateFieldResult = useCallback(
@@ -100,7 +81,7 @@ const ChatBotDemo = () => {
         ) {
           form.setValue(
             parsedResult.fieldName as keyof FormData,
-            parsedResult.value as string,
+            parsedResult.value as FormData[keyof FormData],
             {
               shouldValidate: true,
             }
@@ -183,9 +164,7 @@ const ChatBotDemo = () => {
         text: "Start",
       },
       {
-        body: {
-          model,
-        },
+        body: {},
       }
     );
   };
@@ -200,10 +179,7 @@ const ChatBotDemo = () => {
   };
 
   const handleReset = () => {
-    form.reset({
-      firstName: "",
-      lastName: "",
-    });
+    form.reset(getDefaultValues(formSchema));
     setSubmittedData(null);
     processedToolResultsRef.current.clear();
   };
@@ -258,9 +234,7 @@ const ChatBotDemo = () => {
         files: message.files,
       },
       {
-        body: {
-          model,
-        },
+        body: {},
       }
     );
     setInput("");
@@ -283,11 +257,11 @@ const ChatBotDemo = () => {
 
         {/* Chat - Right Column */}
         <div className="flex w-1/2 flex-col">
-          <Conversation className="h-full">
+          <Conversation className="h-full rounded-lg border bg-input/30">
             <ConversationContent>
               {messages.length === 0 && (
-                <div className="flex h-full flex-col items-center justify-center gap-4">
-                  <p className="text-center text-muted-foreground text-sm">
+                <div className="absolute inset-0 mx-auto flex max-w-md flex-col items-center justify-center gap-4">
+                  <p className="text-balance text-center text-muted-foreground text-sm">
                     Click the button below to start the conversation with the AI
                     assistant. They will help you fill out the form.
                   </p>
@@ -386,26 +360,6 @@ const ChatBotDemo = () => {
                     <PromptInputActionAddAttachments />
                   </PromptInputActionMenuContent>
                 </PromptInputActionMenu>
-                <PromptInputModelSelect
-                  onValueChange={(value) => {
-                    setModel(value);
-                  }}
-                  value={model}
-                >
-                  <PromptInputModelSelectTrigger>
-                    <PromptInputModelSelectValue />
-                  </PromptInputModelSelectTrigger>
-                  <PromptInputModelSelectContent>
-                    {models.map((modelOption) => (
-                      <PromptInputModelSelectItem
-                        key={modelOption.value}
-                        value={modelOption.value}
-                      >
-                        {modelOption.name}
-                      </PromptInputModelSelectItem>
-                    ))}
-                  </PromptInputModelSelectContent>
-                </PromptInputModelSelect>
               </PromptInputTools>
               <PromptInputSubmit
                 disabled={!(input || status)}
