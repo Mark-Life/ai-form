@@ -399,7 +399,6 @@ export function FormBuilderDialog({
                         </SelectItem>
                         <SelectItem value="checkbox">Checkbox</SelectItem>
                         <SelectItem value="range">Range (Slider)</SelectItem>
-                        <SelectItem value="file">File Upload</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

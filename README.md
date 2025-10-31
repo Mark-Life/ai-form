@@ -53,8 +53,8 @@ Extend by modifying the system prompt in `src/app/api/chat/route.ts` and adding 
 - [x] **Checkbox** - Boolean true/false values
 - [x] **Single choice** (Select) - Choose one option from a list
 - [ ] **Multiple choice** (Multi-select) - Choose multiple options from a list
-- [ ] **File upload** - File selection and upload
 - [x] **Range/Slider** - Numeric range selector
+- [ ] **File upload** - File selection and upload
 
 ---
 

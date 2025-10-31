@@ -7,7 +7,6 @@ import type { FieldType, FormDefinition } from "@/lib/utils";
 import { formatFieldLabel, getFieldType } from "@/lib/utils";
 import { CheckboxField } from "./checkbox-field";
 import { DateField } from "./date-field";
-import { FileField } from "./file-field";
 import { MultiSelectField } from "./multi-select-field";
 import { NumberField } from "./number-field";
 import { RangeField } from "./range-field";
@@ -129,17 +128,6 @@ export function FormFieldComponent<T extends z.ZodObject<z.ZodRawShape>>({
                 fieldDef={fieldDef}
                 fieldState={fieldState}
                 label={label}
-              />
-            );
-
-          case "file":
-            return (
-              <FileField
-                field={field as never}
-                fieldDef={fieldDef}
-                fieldState={fieldState}
-                label={label}
-                placeholder={placeholder}
               />
             );
 
