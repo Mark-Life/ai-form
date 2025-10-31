@@ -3,32 +3,119 @@ import { z } from "zod";
 
 import { getFieldNames, getFieldType } from "../utils/schema-utils";
 
+const TIME_FORMAT_REGEX = /^\d{2}:\d{2}$/;
+
+function processNumberValue(
+  value: unknown
+): { success: true; value: number } | { success: false; error: string } {
+  const numValue = typeof value === "string" ? Number.parseFloat(value) : value;
+  if (typeof numValue !== "number" || Number.isNaN(numValue)) {
+    return {
+      success: false,
+      error: "Value must be a valid number",
+    };
+  }
+  return { success: true, value: numValue };
+}
+
+function processCheckboxValue(
+  value: unknown
+): { success: true; value: boolean } | { success: false; error: string } {
+  const boolValue = typeof value === "boolean" ? value : Boolean(value);
+  return { success: true, value: boolValue };
+}
+
+function processMultiSelectValue(
+  value: unknown
+): { success: true; value: string[] } | { success: false; error: string } {
+  if (Array.isArray(value)) {
+    return {
+      success: true,
+      value: value.map((v) => String(v).trim()).filter((v) => v.length > 0),
+    };
+  }
+  if (typeof value === "string") {
+    const values = value
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+    return { success: true, value: values };
+  }
+  return {
+    success: false,
+    error: "Value must be an array or comma-separated string",
+  };
+}
+
+function processDateValue(
+  value: unknown
+): { success: true; value: string } | { success: false; error: string } {
+  const strValue = typeof value === "string" ? value.trim() : String(value);
+  try {
+    const date = new Date(strValue);
+    if (Number.isNaN(date.getTime())) {
+      return {
+        success: false,
+        error: "Invalid date format. Use YYYY-MM-DD",
+      };
+    }
+    const formatted = date.toISOString().split("T")[0];
+    return { success: true, value: formatted };
+  } catch {
+    return {
+      success: false,
+      error: "Invalid date format. Use YYYY-MM-DD",
+    };
+  }
+}
+
+function processTimeValue(
+  value: unknown
+): { success: true; value: string } | { success: false; error: string } {
+  const strValue = typeof value === "string" ? value.trim() : String(value);
+  if (!TIME_FORMAT_REGEX.test(strValue)) {
+    return {
+      success: false,
+      error: "Time must be in HH:MM format (24-hour)",
+    };
+  }
+  return { success: true, value: strValue };
+}
+
+function processStringValue(
+  value: unknown
+): { success: true; value: string } | { success: false; error: string } {
+  const strValue = typeof value === "string" ? value.trim() : String(value);
+  return { success: true, value: strValue };
+}
+
 function processFieldValue(
   value: unknown,
   fieldType: ReturnType<typeof getFieldType>
 ):
-  | { success: true; value: string | number | boolean }
+  | { success: true; value: string | number | boolean | string[] }
   | { success: false; error: string } {
-  if (fieldType === "number") {
-    const numValue =
-      typeof value === "string" ? Number.parseFloat(value) : value;
-    if (typeof numValue !== "number" || Number.isNaN(numValue)) {
-      return {
-        success: false,
-        error: "Value must be a valid number",
-      };
-    }
-    return { success: true, value: numValue };
+  if (fieldType === "number" || fieldType === "range") {
+    return processNumberValue(value);
   }
 
   if (fieldType === "checkbox") {
-    const boolValue = typeof value === "boolean" ? value : Boolean(value);
-    return { success: true, value: boolValue };
+    return processCheckboxValue(value);
   }
 
-  // For string fields, trim the value
-  const strValue = typeof value === "string" ? value.trim() : String(value);
-  return { success: true, value: strValue };
+  if (fieldType === "multiSelect") {
+    return processMultiSelectValue(value);
+  }
+
+  if (fieldType === "date") {
+    return processDateValue(value);
+  }
+
+  if (fieldType === "time") {
+    return processTimeValue(value);
+  }
+
+  return processStringValue(value);
 }
 
 function processSingleField<T extends z.ZodObject<z.ZodRawShape>>(
@@ -37,7 +124,7 @@ function processSingleField<T extends z.ZodObject<z.ZodRawShape>>(
   formSchema: T,
   fieldNames: string[]
 ):
-  | { success: true; value: string | number | boolean }
+  | { success: true; value: string | number | boolean | string[] }
   | { success: false; error: string } {
   // Validate field name exists in schema
   if (!fieldNames.includes(fieldName)) {
@@ -74,7 +161,7 @@ function processSingleField<T extends z.ZodObject<z.ZodRawShape>>(
     // Success
     return {
       success: true,
-      value: processedValue.value,
+      value: processedValue.value as string | number | boolean | string[],
     };
   } catch (error) {
     return {
@@ -90,12 +177,12 @@ function processFields<T extends z.ZodObject<z.ZodRawShape>>(
   fieldNames: string[]
 ): Record<
   string,
-  | { success: true; value: string | number | boolean }
+  | { success: true; value: string | number | boolean | string[] }
   | { success: false; error: string }
 > {
   const results: Record<
     string,
-    | { success: true; value: string | number | boolean }
+    | { success: true; value: string | number | boolean | string[] }
     | { success: false; error: string }
   > = {};
 
@@ -114,7 +201,7 @@ function processFields<T extends z.ZodObject<z.ZodRawShape>>(
 function buildSummaryMessage(
   results: Record<
     string,
-    | { success: true; value: string | number | boolean }
+    | { success: true; value: string | number | boolean | string[] }
     | { success: false; error: string }
   >
 ): { success: boolean; message: string } {

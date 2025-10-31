@@ -43,19 +43,18 @@ Extend by modifying the system prompt in `src/app/api/chat/route.ts` and adding 
 
 ## Field types
 - [x] **Text** - Single-line text input
+- [x] **Textarea** - Multi-line text input
 - [x] **Email** - Email address with validation
 - [x] **Phone** - Phone number with pattern validation
 - [x] **URL** - Website URL with protocol validation
+- [x] **Number** - Numeric input with min/max validation
+- [x] **Date** - Date picker
+- [x] **Time** - Time picker
 - [x] **Checkbox** - Boolean true/false values
-- [ ] **Single choice** (Select/Radio) - Choose one option from a list
+- [x] **Single choice** (Select) - Choose one option from a list
 - [ ] **Multiple choice** (Multi-select) - Choose multiple options from a list
-- [ ] **Number** - Numeric input with min/max validation
-- [ ] **Date** - Date picker
-- [ ] **Time** - Time picker
-- [ ] **Textarea** - Multi-line text input
-- [ ] **Password** - Password input with masking
 - [ ] **File upload** - File selection and upload
-- [ ] **Range/Slider** - Numeric range selector
+- [x] **Range/Slider** - Numeric range selector
 
 ---
 

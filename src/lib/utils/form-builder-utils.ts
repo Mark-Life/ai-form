@@ -37,6 +37,55 @@ export function formDefinitionToZodSchema(
         case "checkbox":
           fieldSchema = z.boolean();
           break;
+        case "select":
+          fieldSchema = z.string().trim();
+          if (field.options && field.options.length > 0) {
+            fieldSchema = fieldSchema.refine(
+              (val) => field.options?.includes(val as string) ?? false,
+              {
+                message: `Must be one of: ${field.options.join(", ")}`,
+              }
+            );
+          }
+          break;
+        case "multiSelect":
+          fieldSchema = z.array(z.string());
+          if (field.options && field.options.length > 0) {
+            fieldSchema = fieldSchema.refine(
+              (val) =>
+                (val as string[]).every((item: string) =>
+                  field.options?.includes(item)
+                ),
+              {
+                message: `All selections must be from: ${field.options.join(", ")}`,
+              }
+            );
+          }
+          break;
+        case "number":
+          fieldSchema = z.number();
+          break;
+        case "range":
+          fieldSchema = z.number();
+          break;
+        case "date":
+          fieldSchema = z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+            .trim();
+          break;
+        case "time":
+          fieldSchema = z
+            .string()
+            .regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format")
+            .trim();
+          break;
+        case "textarea":
+          fieldSchema = z.string().trim();
+          break;
+        case "file":
+          fieldSchema = z.string().trim();
+          break;
         default:
           fieldSchema = z.string().trim();
       }
@@ -56,6 +105,14 @@ export function formDefinitionToZodSchema(
         if (field.type === "checkbox") {
           // Checkboxes don't need explicit required message
           finalSchema = fieldSchema;
+        } else if (field.type === "multiSelect") {
+          finalSchema = (fieldSchema as z.ZodArray<z.ZodString>).min(
+            1,
+            `${field.label} is required`
+          );
+        } else if (field.type === "number" || field.type === "range") {
+          // Numbers are required by default, no need for extra validation
+          finalSchema = fieldSchema;
         } else {
           finalSchema = (fieldSchema as z.ZodString).min(
             1,
@@ -64,6 +121,10 @@ export function formDefinitionToZodSchema(
         }
       } else if (field.type === "checkbox") {
         finalSchema = fieldSchema.default(false);
+      } else if (field.type === "multiSelect") {
+        finalSchema = (fieldSchema as z.ZodArray<z.ZodString>).default([]);
+      } else if (field.type === "number" || field.type === "range") {
+        finalSchema = fieldSchema.optional();
       } else {
         finalSchema = fieldSchema.optional();
       }
@@ -90,18 +151,50 @@ function applyValidationRules(
     return result;
   }
 
+  // Handle number min/max
+  if (fieldType === "number" || fieldType === "range") {
+    if (rules.min !== undefined) {
+      result = (result as z.ZodNumber).min(
+        rules.min,
+        `Must be at least ${rules.min}`
+      );
+    }
+    if (rules.max !== undefined) {
+      result = (result as z.ZodNumber).max(
+        rules.max,
+        `Must be at most ${rules.max}`
+      );
+    }
+    return result;
+  }
+
+  // Handle string min/max length
   if (rules.minLength !== undefined) {
-    result = (result as z.ZodString).min(
-      rules.minLength,
-      `Must be at least ${rules.minLength} characters`
-    );
+    if (fieldType === "multiSelect") {
+      result = (result as z.ZodArray<z.ZodString>).min(
+        rules.minLength,
+        `Must select at least ${rules.minLength} option${rules.minLength === 1 ? "" : "s"}`
+      );
+    } else {
+      result = (result as z.ZodString).min(
+        rules.minLength,
+        `Must be at least ${rules.minLength} characters`
+      );
+    }
   }
 
   if (rules.maxLength !== undefined) {
-    result = (result as z.ZodString).max(
-      rules.maxLength,
-      `Must be at most ${rules.maxLength} characters`
-    );
+    if (fieldType === "multiSelect") {
+      result = (result as z.ZodArray<z.ZodString>).max(
+        rules.maxLength,
+        `Must select at most ${rules.maxLength} option${rules.maxLength === 1 ? "" : "s"}`
+      );
+    } else {
+      result = (result as z.ZodString).max(
+        rules.maxLength,
+        `Must be at most ${rules.maxLength} characters`
+      );
+    }
   }
 
   if (rules.pattern) {
@@ -122,6 +215,14 @@ function detectFieldType(zodType: z.ZodTypeAny): FieldType {
     return "checkbox";
   }
 
+  if (typeName === "ZodNumber") {
+    return "number";
+  }
+
+  if (typeName === "ZodArray") {
+    return "multiSelect";
+  }
+
   if (typeName === "ZodString") {
     const stringSchema = zodType as z.ZodString;
     const checks = (stringSchema._def as { checks?: Array<{ kind?: string }> })
@@ -132,6 +233,21 @@ function detectFieldType(zodType: z.ZodTypeAny): FieldType {
     }
     if (checks?.some((check) => check.kind === "url")) {
       return "url";
+    }
+
+    // Check for date pattern
+    const regexCheck = checks?.find((check) => check.kind === "regex");
+    if (regexCheck) {
+      const regexValue = (regexCheck as { regex?: RegExp })?.regex;
+      if (regexValue) {
+        const regexStr = regexValue.toString();
+        if (regexStr.includes("\\d{4}-\\d{2}-\\d{2}")) {
+          return "date";
+        }
+        if (regexStr.includes("\\d{2}:\\d{2}")) {
+          return "time";
+        }
+      }
     }
 
     return "text";
@@ -145,8 +261,39 @@ function detectFieldType(zodType: z.ZodTypeAny): FieldType {
  */
 function extractValidationRules(zodType: z.ZodTypeAny): ValidationRules {
   const validation: ValidationRules = {};
+  const typeName = (zodType._def as { typeName?: string }).typeName;
 
-  if ((zodType._def as { typeName?: string }).typeName !== "ZodString") {
+  if (typeName === "ZodNumber") {
+    const numberSchema = zodType as z.ZodNumber;
+    const checks = (numberSchema._def as { checks?: Array<{ kind?: string }> })
+      ?.checks;
+
+    for (const check of checks || []) {
+      if (check.kind === "min") {
+        validation.min = (check as { value?: number })?.value;
+      } else if (check.kind === "max") {
+        validation.max = (check as { value?: number })?.value;
+      }
+    }
+    return validation;
+  }
+
+  if (typeName === "ZodArray") {
+    const arraySchema = zodType as z.ZodArray<z.ZodString>;
+    const checks = (arraySchema._def as { checks?: Array<{ kind?: string }> })
+      ?.checks;
+
+    for (const check of checks || []) {
+      if (check.kind === "min") {
+        validation.minLength = (check as { value?: number })?.value;
+      } else if (check.kind === "max") {
+        validation.maxLength = (check as { value?: number })?.value;
+      }
+    }
+    return validation;
+  }
+
+  if (typeName !== "ZodString") {
     return validation;
   }
 

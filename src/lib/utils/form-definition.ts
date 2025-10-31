@@ -1,4 +1,17 @@
-export type FieldType = "text" | "email" | "phone" | "url" | "checkbox";
+export type FieldType =
+  | "text"
+  | "email"
+  | "phone"
+  | "url"
+  | "checkbox"
+  | "select"
+  | "multiSelect"
+  | "number"
+  | "date"
+  | "time"
+  | "textarea"
+  | "file"
+  | "range";
 
 export type ValidationRules = {
   minLength?: number;
@@ -16,6 +29,7 @@ export type FormFieldDefinition = {
   type: FieldType;
   required: boolean;
   validation?: ValidationRules;
+  options?: string[];
 };
 
 export type FormDefinition = FormFieldDefinition[];

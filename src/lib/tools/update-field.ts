@@ -3,13 +3,15 @@ import { z } from "zod";
 
 import { getFieldNames, getFieldType } from "../utils/schema-utils";
 
+const TIME_FORMAT_REGEX = /^\d{2}:\d{2}$/;
+
 function processFieldValue(
   value: unknown,
   fieldType: ReturnType<typeof getFieldType>
 ):
-  | { success: true; value: string | number | boolean }
+  | { success: true; value: string | number | boolean | string[] }
   | { success: false; fieldName: string; error: string } {
-  if (fieldType === "number") {
+  if (fieldType === "number" || fieldType === "range") {
     const numValue =
       typeof value === "string" ? Number.parseFloat(value) : value;
     if (typeof numValue !== "number" || Number.isNaN(numValue)) {
@@ -25,6 +27,64 @@ function processFieldValue(
   if (fieldType === "checkbox") {
     const boolValue = typeof value === "boolean" ? value : Boolean(value);
     return { success: true, value: boolValue };
+  }
+
+  if (fieldType === "multiSelect") {
+    if (Array.isArray(value)) {
+      return {
+        success: true,
+        value: value.map((v) => String(v).trim()).filter((v) => v.length > 0),
+      };
+    }
+    if (typeof value === "string") {
+      // Parse comma-separated values
+      const values = value
+        .split(",")
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
+      return { success: true, value: values };
+    }
+    return {
+      success: false,
+      fieldName: "",
+      error: "Value must be an array or comma-separated string",
+    };
+  }
+
+  if (fieldType === "date") {
+    const strValue = typeof value === "string" ? value.trim() : String(value);
+    // Try to parse and format as YYYY-MM-DD
+    try {
+      const date = new Date(strValue);
+      if (Number.isNaN(date.getTime())) {
+        return {
+          success: false,
+          fieldName: "",
+          error: "Invalid date format. Use YYYY-MM-DD",
+        };
+      }
+      const formatted = date.toISOString().split("T")[0];
+      return { success: true, value: formatted };
+    } catch {
+      return {
+        success: false,
+        fieldName: "",
+        error: "Invalid date format. Use YYYY-MM-DD",
+      };
+    }
+  }
+
+  if (fieldType === "time") {
+    const strValue = typeof value === "string" ? value.trim() : String(value);
+    // Validate HH:MM format
+    if (!TIME_FORMAT_REGEX.test(strValue)) {
+      return {
+        success: false,
+        fieldName: "",
+        error: "Time must be in HH:MM format (24-hour)",
+      };
+    }
+    return { success: true, value: strValue };
   }
 
   // For string fields, trim the value

@@ -34,6 +34,13 @@ function isBooleanSchema(schema: z.ZodTypeAny): schema is z.ZodBoolean {
   return (schema._def as { type?: string })?.type === "boolean";
 }
 
+/**
+ * Detect if a Zod schema is an array type
+ */
+function isArraySchema(schema: z.ZodTypeAny): schema is z.ZodArray<z.ZodTypeAny> {
+  return (schema._def as { type?: string })?.type === "array";
+}
+
 const PHONE_PATTERN_REGEX = /phone|tel|\+?\d/;
 
 /**
@@ -41,7 +48,7 @@ const PHONE_PATTERN_REGEX = /phone|tel|\+?\d/;
  */
 function getStringFieldSubtype(
   schema: z.ZodString
-): "text" | "email" | "phone" | "url" {
+): "text" | "email" | "phone" | "url" | "date" | "time" | "textarea" | "file" {
   const checks = (schema._def as { checks?: Array<{ kind?: string }> })?.checks;
 
   if (!checks || checks.length === 0) {
@@ -58,12 +65,21 @@ function getStringFieldSubtype(
     return "url";
   }
 
-  // Check for phone pattern (regex check with phone-like pattern)
+  // Check for date/time patterns
   const regexCheck = checks.find((check) => check.kind === "regex");
   if (regexCheck) {
     const regexValue = (regexCheck as { regex?: RegExp })?.regex;
-    if (regexValue && PHONE_PATTERN_REGEX.test(regexValue.toString())) {
-      return "phone";
+    if (regexValue) {
+      const regexStr = regexValue.toString();
+      if (regexStr.includes("\\d{4}-\\d{2}-\\d{2}")) {
+        return "date";
+      }
+      if (regexStr.includes("\\d{2}:\\d{2}")) {
+        return "time";
+      }
+      if (PHONE_PATTERN_REGEX.test(regexStr)) {
+        return "phone";
+      }
     }
   }
 
@@ -107,7 +123,21 @@ function unwrapSchema(fieldSchema: z.ZodTypeAny): z.ZodTypeAny {
 export function getFieldType<T extends ZodObjectSchema>(
   schema: T,
   fieldName: keyof z.infer<T>
-): "text" | "email" | "phone" | "url" | "number" | "checkbox" | "unknown" {
+):
+  | "text"
+  | "email"
+  | "phone"
+  | "url"
+  | "number"
+  | "checkbox"
+  | "select"
+  | "multiSelect"
+  | "date"
+  | "time"
+  | "textarea"
+  | "file"
+  | "range"
+  | "unknown" {
   const fieldSchema = schema.shape[fieldName as string] as z.ZodTypeAny;
   const unwrappedSchema = unwrapSchema(fieldSchema);
 
@@ -116,7 +146,12 @@ export function getFieldType<T extends ZodObjectSchema>(
     return "checkbox";
   }
   if (isNumberSchema(unwrappedSchema)) {
+    // Can't distinguish between number and range from schema alone
+    // Default to number, UI layer can override based on field definition
     return "number";
+  }
+  if (isArraySchema(unwrappedSchema)) {
+    return "multiSelect";
   }
   if (isStringSchema(unwrappedSchema)) {
     return getStringFieldSubtype(unwrappedSchema);
@@ -157,19 +192,27 @@ export function getDefaultValues<T extends ZodObjectSchema>(
 
       // Fall back to type-based defaults
       const fieldType = getFieldType(schema, key as keyof z.infer<T>);
-      if (fieldType === "number") {
+      if (fieldType === "number" || fieldType === "range") {
         return [key, 0];
       }
       if (
         fieldType === "text" ||
         fieldType === "email" ||
         fieldType === "phone" ||
-        fieldType === "url"
+        fieldType === "url" ||
+        fieldType === "date" ||
+        fieldType === "time" ||
+        fieldType === "textarea" ||
+        fieldType === "file" ||
+        fieldType === "select"
       ) {
         return [key, ""];
       }
       if (fieldType === "checkbox") {
         return [key, false];
+      }
+      if (fieldType === "multiSelect") {
+        return [key, []];
       }
 
       // Return undefined for unknown types

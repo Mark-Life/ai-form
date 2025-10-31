@@ -213,6 +213,7 @@ const ChatBotDemo = () => {
               return (
                 <FormPreview
                   form={form}
+                  formDefinition={formDefinition}
                   formSchema={formSchema}
                   onSubmit={handleFormSubmit}
                 />
