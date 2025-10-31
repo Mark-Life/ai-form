@@ -27,11 +27,11 @@ import {
   loadFormFromStorage,
   zodSchemaToFormDefinition,
 } from "@/lib/utils";
-import { ChatInput } from "./chat-input";
-import { FormBuilderDialog } from "./form-builder-dialog";
-import { FormPreview } from "./form-preview";
-import { MessageList } from "./message-list";
-import { FormResult } from "./result";
+import { ChatInput } from "./chat/chat-input";
+import { MessageList } from "./chat/message-list";
+import { FormResult } from "./chat/result";
+import { FormPreview } from "./form/form-preview";
+import { FormBuilder } from "./form-builder/form-builder";
 
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
@@ -263,7 +263,7 @@ const ChatBotDemo = () => {
       </div>
 
       {formDefinition && (
-        <FormBuilderDialog
+        <FormBuilder
           initialFields={formDefinition}
           onOpenChange={setIsFormBuilderOpen}
           onSave={handleFormUpdate}

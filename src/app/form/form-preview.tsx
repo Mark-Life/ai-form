@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import type { FormDefinition } from "@/lib/utils";
 import { getFieldNames } from "@/lib/utils";
-import { FormFieldComponent } from "./form-components";
+import { FormFieldComponent } from ".";
 
 type FormPreviewProps<T extends z.ZodObject<z.ZodRawShape>> = {
   form: UseFormReturn<z.infer<T>>;
