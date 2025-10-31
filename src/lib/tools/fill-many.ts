@@ -172,7 +172,7 @@ function processSingleField<T extends z.ZodObject<z.ZodRawShape>>(
 }
 
 function processFields<T extends z.ZodObject<z.ZodRawShape>>(
-  fields: Record<string, string | number | boolean>,
+  fields: Record<string, string | number | boolean | string[]>,
   formSchema: T,
   fieldNames: string[]
 ): Record<
@@ -239,9 +239,12 @@ export function createFillManyTool<T extends z.ZodObject<z.ZodRawShape>>(
       "Update multiple form fields at once. Use this when the user provides multiple pieces of information simultaneously (e.g., full name for firstName and lastName, or address components). Returns per-field validation errors if any fields fail.",
     inputSchema: z.object({
       fields: z
-        .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+        .record(
+          z.string(),
+          z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])
+        )
         .describe(
-          "Object mapping field names to values. Example: { firstName: 'John', lastName: 'Doe' }"
+          "Object mapping field names to values. Example: { firstName: 'John', lastName: 'Doe', multiSelect: ['option1', 'option2'] }"
         ),
     }),
     execute: ({ fields }) => {

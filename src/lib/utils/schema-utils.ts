@@ -37,11 +37,31 @@ function isBooleanSchema(schema: z.ZodTypeAny): schema is z.ZodBoolean {
 /**
  * Detect if a Zod schema is an array type
  */
-function isArraySchema(schema: z.ZodTypeAny): schema is z.ZodArray<z.ZodTypeAny> {
+function isArraySchema(
+  schema: z.ZodTypeAny
+): schema is z.ZodArray<z.ZodTypeAny> {
   return (schema._def as { type?: string })?.type === "array";
 }
 
 const PHONE_PATTERN_REGEX = /phone|tel|\+?\d/;
+
+/**
+ * Detect subtype from regex pattern string
+ */
+function detectSubtypeFromRegex(
+  regexStr: string
+): "date" | "time" | "phone" | null {
+  if (regexStr.includes("\\d{4}-\\d{2}-\\d{2}")) {
+    return "date";
+  }
+  if (regexStr.includes("\\d{2}:\\d{2}")) {
+    return "time";
+  }
+  if (PHONE_PATTERN_REGEX.test(regexStr)) {
+    return "phone";
+  }
+  return null;
+}
 
 /**
  * Get detailed type information from a Zod string schema
@@ -65,20 +85,14 @@ function getStringFieldSubtype(
     return "url";
   }
 
-  // Check for date/time patterns
+  // Check for date/time/phone patterns
   const regexCheck = checks.find((check) => check.kind === "regex");
   if (regexCheck) {
     const regexValue = (regexCheck as { regex?: RegExp })?.regex;
     if (regexValue) {
-      const regexStr = regexValue.toString();
-      if (regexStr.includes("\\d{4}-\\d{2}-\\d{2}")) {
-        return "date";
-      }
-      if (regexStr.includes("\\d{2}:\\d{2}")) {
-        return "time";
-      }
-      if (PHONE_PATTERN_REGEX.test(regexStr)) {
-        return "phone";
+      const detectedType = detectSubtypeFromRegex(regexValue.toString());
+      if (detectedType) {
+        return detectedType;
       }
     }
   }

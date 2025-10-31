@@ -5,91 +5,107 @@ import { getFieldNames, getFieldType } from "../utils/schema-utils";
 
 const TIME_FORMAT_REGEX = /^\d{2}:\d{2}$/;
 
-function processFieldValue(
-  value: unknown,
-  fieldType: ReturnType<typeof getFieldType>
-):
+type ProcessResult =
   | { success: true; value: string | number | boolean | string[] }
-  | { success: false; fieldName: string; error: string } {
-  if (fieldType === "number" || fieldType === "range") {
-    const numValue =
-      typeof value === "string" ? Number.parseFloat(value) : value;
-    if (typeof numValue !== "number" || Number.isNaN(numValue)) {
-      return {
-        success: false,
-        fieldName: "",
-        error: "Value must be a valid number",
-      };
-    }
-    return { success: true, value: numValue };
-  }
+  | { success: false; fieldName: string; error: string };
 
-  if (fieldType === "checkbox") {
-    const boolValue = typeof value === "boolean" ? value : Boolean(value);
-    return { success: true, value: boolValue };
-  }
-
-  if (fieldType === "multiSelect") {
-    if (Array.isArray(value)) {
-      return {
-        success: true,
-        value: value.map((v) => String(v).trim()).filter((v) => v.length > 0),
-      };
-    }
-    if (typeof value === "string") {
-      // Parse comma-separated values
-      const values = value
-        .split(",")
-        .map((v) => v.trim())
-        .filter((v) => v.length > 0);
-      return { success: true, value: values };
-    }
+function processNumberValue(value: unknown): ProcessResult {
+  const numValue = typeof value === "string" ? Number.parseFloat(value) : value;
+  if (typeof numValue !== "number" || Number.isNaN(numValue)) {
     return {
       success: false,
       fieldName: "",
-      error: "Value must be an array or comma-separated string",
+      error: "Value must be a valid number",
     };
   }
+  return { success: true, value: numValue };
+}
 
-  if (fieldType === "date") {
-    const strValue = typeof value === "string" ? value.trim() : String(value);
-    // Try to parse and format as YYYY-MM-DD
-    try {
-      const date = new Date(strValue);
-      if (Number.isNaN(date.getTime())) {
-        return {
-          success: false,
-          fieldName: "",
-          error: "Invalid date format. Use YYYY-MM-DD",
-        };
-      }
-      const formatted = date.toISOString().split("T")[0];
-      return { success: true, value: formatted };
-    } catch {
+function processCheckboxValue(value: unknown): ProcessResult {
+  const boolValue = typeof value === "boolean" ? value : Boolean(value);
+  return { success: true, value: boolValue };
+}
+
+function processMultiSelectValue(value: unknown): ProcessResult {
+  if (Array.isArray(value)) {
+    return {
+      success: true,
+      value: value.map((v) => String(v).trim()).filter((v) => v.length > 0),
+    };
+  }
+  if (typeof value === "string") {
+    const values = value
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+    return { success: true, value: values };
+  }
+  return {
+    success: false,
+    fieldName: "",
+    error: "Value must be an array or comma-separated string",
+  };
+}
+
+function processDateValue(value: unknown): ProcessResult {
+  const strValue = typeof value === "string" ? value.trim() : String(value);
+  try {
+    const date = new Date(strValue);
+    if (Number.isNaN(date.getTime())) {
       return {
         success: false,
         fieldName: "",
         error: "Invalid date format. Use YYYY-MM-DD",
       };
     }
+    const formatted = date.toISOString().split("T")[0];
+    return { success: true, value: formatted };
+  } catch {
+    return {
+      success: false,
+      fieldName: "",
+      error: "Invalid date format. Use YYYY-MM-DD",
+    };
   }
+}
 
-  if (fieldType === "time") {
-    const strValue = typeof value === "string" ? value.trim() : String(value);
-    // Validate HH:MM format
-    if (!TIME_FORMAT_REGEX.test(strValue)) {
-      return {
-        success: false,
-        fieldName: "",
-        error: "Time must be in HH:MM format (24-hour)",
-      };
-    }
-    return { success: true, value: strValue };
+function processTimeValue(value: unknown): ProcessResult {
+  const strValue = typeof value === "string" ? value.trim() : String(value);
+  if (!TIME_FORMAT_REGEX.test(strValue)) {
+    return {
+      success: false,
+      fieldName: "",
+      error: "Time must be in HH:MM format (24-hour)",
+    };
   }
+  return { success: true, value: strValue };
+}
 
-  // For string fields, trim the value
+function processStringValue(value: unknown): ProcessResult {
   const strValue = typeof value === "string" ? value.trim() : String(value);
   return { success: true, value: strValue };
+}
+
+function processFieldValue(
+  value: unknown,
+  fieldType: ReturnType<typeof getFieldType>
+): ProcessResult {
+  if (fieldType === "number" || fieldType === "range") {
+    return processNumberValue(value);
+  }
+  if (fieldType === "checkbox") {
+    return processCheckboxValue(value);
+  }
+  if (fieldType === "multiSelect") {
+    return processMultiSelectValue(value);
+  }
+  if (fieldType === "date") {
+    return processDateValue(value);
+  }
+  if (fieldType === "time") {
+    return processTimeValue(value);
+  }
+  return processStringValue(value);
 }
 
 export function createUpdateFieldTool<T extends z.ZodObject<z.ZodRawShape>>(
@@ -107,9 +123,9 @@ export function createUpdateFieldTool<T extends z.ZodObject<z.ZodRawShape>>(
         })
         .describe("The name of the field to update"),
       value: z
-        .union([z.string(), z.number(), z.boolean()])
+        .union([z.string(), z.number(), z.boolean(), z.array(z.string())])
         .describe(
-          "The value to set for the field (string, number, or boolean)"
+          "The value to set for the field (string, number, boolean, or array of strings for multi-select fields)"
         ),
     }),
     execute: ({ fieldName, value }) => {
