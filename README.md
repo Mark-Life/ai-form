@@ -25,10 +25,12 @@ Forms suck. Users skip them, make mistakes, or struggle with validation. This pu
 ## Demo
 
 ### Form Builder
-<video src="demo/form-builder.mp4" controls width="100%"></video>
+<!-- <video src="demo/form-builder.mp4" controls width="100%"></video> -->
+[![Watch the video](https://raw.githubusercontent.com/Mark-Life/ai-form/main/demo/form-builder-thumbnail.png)](https://raw.githubusercontent.com/Mark-Life/ai-form/main/demo/form-builder.mp4)
 
 ### AI Conversation
-<video src="demo/ai-chat.mp4" controls width="100%"></video>
+<!-- <video src="demo/ai-chat.mp4" controls width="100%"></video> -->
+[![Watch the video](https://raw.githubusercontent.com/Mark-Life/ai-form/main/demo/ai-chat-thumbnail.png)](https://raw.githubusercontent.com/Mark-Life/ai-form/main/demo/ai-chat.mp4)
 
 ## What it can do
 
