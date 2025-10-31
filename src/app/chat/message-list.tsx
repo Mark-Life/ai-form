@@ -34,7 +34,13 @@ export function MessageList({
                   <Fragment key={`${message.id}-${i}`}>
                     <Message from={message.role}>
                       <MessageContent>
-                        <Response>{part.text}</Response>
+                        {message.role === "user" ? (
+                          <div className="wrap-break-word whitespace-pre-wrap">
+                            {part.text}
+                          </div>
+                        ) : (
+                          <Response>{part.text}</Response>
+                        )}
                       </MessageContent>
                     </Message>
                     {message.role === "assistant" && (

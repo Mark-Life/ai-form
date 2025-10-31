@@ -119,7 +119,9 @@ const ChatBotDemo = () => {
         text: "Start",
       },
       {
-        body: {},
+        body: {
+          formDefinition: formDefinition ?? null,
+        },
       }
     );
   };

@@ -9,12 +9,16 @@ import type { z } from "zod";
 import { formSchema as demoFormSchema } from "@/lib/demo-schema";
 import { createTools } from "@/lib/tools";
 import type { FormDefinition } from "@/lib/utils";
-import { formDefinitionToZodSchema } from "@/lib/utils";
+import {
+  formatFieldLabel,
+  formDefinitionToZodSchema,
+  zodSchemaToFormDefinition,
+} from "@/lib/utils";
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
-const MAX_TOOL_STEPS = 5;
+const MAX_TOOL_STEPS = 4;
 
 export async function POST(req: Request) {
   const {
@@ -30,12 +34,16 @@ export async function POST(req: Request) {
     ? formDefinitionToZodSchema(formDefinition)
     : demoFormSchema;
 
-  const tools = createTools(formSchema);
+  // Generate form definition from demo schema if not provided
+  const effectiveFormDefinition =
+    formDefinition || zodSchemaToFormDefinition(demoFormSchema);
+
+  const tools = createTools(formSchema, effectiveFormDefinition);
 
   const result = streamText({
     model: google("gemini-2.5-flash"),
     messages: convertToModelMessages(messages),
-    system: getSystemPrompt(formSchema),
+    system: getSystemPrompt(formSchema, effectiveFormDefinition),
     tools,
     stopWhen: stepCountIs(MAX_TOOL_STEPS),
   });
@@ -70,20 +78,47 @@ function unwrapZodType(zodType: z.ZodTypeAny): z.ZodTypeAny {
   return current;
 }
 
+function detectStringSubtype(checks?: Array<{ kind?: string }>): string {
+  if (!checks || checks.length === 0) {
+    return "text";
+  }
+
+  if (checks.some((c) => c.kind === "email")) {
+    return "email";
+  }
+  if (checks.some((c) => c.kind === "url")) {
+    return "url";
+  }
+
+  const regexCheck = checks.find((c) => c.kind === "regex");
+  if (regexCheck) {
+    const regexValue = (regexCheck as { regex?: RegExp })?.regex;
+    if (regexValue) {
+      const regexStr = regexValue.toString();
+      if (regexStr.includes("\\d{4}-\\d{2}-\\d{2}")) {
+        return "date";
+      }
+      if (regexStr.includes("\\d{2}:\\d{2}")) {
+        return "time";
+      }
+    }
+  }
+
+  return "text";
+}
+
 function getFieldTypeDescription(zodType: z.ZodTypeAny): string {
   const unwrapped = unwrapZodType(zodType);
   const defType = (unwrapped._def as { type?: string })?.type;
 
+  if (defType === "array") {
+    return "multiSelect";
+  }
+
   if (defType === "string") {
     const checks = (unwrapped._def as { checks?: Array<{ kind?: string }> })
       ?.checks;
-    if (checks?.some((c) => c.kind === "email")) {
-      return "email";
-    }
-    if (checks?.some((c) => c.kind === "url")) {
-      return "url";
-    }
-    return "text";
+    return detectStringSubtype(checks);
   }
 
   if (defType === "number") {
@@ -97,12 +132,24 @@ function getFieldTypeDescription(zodType: z.ZodTypeAny): string {
   return "unknown";
 }
 
-function getSystemPrompt(formSchema: z.ZodObject<z.ZodRawShape>): string {
+function getSystemPrompt(
+  formSchema: z.ZodObject<z.ZodRawShape>,
+  formDefinition: FormDefinition
+): string {
   const schemaShape = formSchema.shape;
+  const fieldLabelMap = new Map<string, string>();
+  const fieldTypeMap = new Map<string, string>();
+  for (const field of formDefinition) {
+    fieldLabelMap.set(field.name, field.label);
+    fieldTypeMap.set(field.name, field.type);
+  }
+
   const fieldDescriptions = Object.entries(schemaShape).map(([key, schema]) => {
     const zodType = schema as z.ZodTypeAny;
-    const typeDesc = getFieldTypeDescription(zodType);
-    return `- ${key}: ${typeDesc}`;
+    // Prefer type from formDefinition, fallback to inferring from schema
+    const typeDesc = fieldTypeMap.get(key) || getFieldTypeDescription(zodType);
+    const label = fieldLabelMap.get(key) || formatFieldLabel(key);
+    return `- ${key} (${label}): ${typeDesc}`;
   });
 
   return `
@@ -119,6 +166,11 @@ function getSystemPrompt(formSchema: z.ZodObject<z.ZodRawShape>): string {
     User can give you anwsers out of the order of the fields, you can call the updateField tool to fill in the fields as soon as you get the information.
     
     When a user provides multiple pieces of information at once (e.g., "My name is John Doe" for firstName and lastName, or providing address components together), use the fillMany tool to update multiple fields simultaneously. The fillMany tool returns per-field validation errors, so you can retry failed fields individually if needed.
+
+    User can provide some of the data in different format, its your job to adapt the data to the form fields. If some field update returns a formatting error, you can try to call the tool with another argument format, before clarifying with the user.
+
+    Date format: YYYY-MM-DD
+    Time format: HH:MM (24-hour)
 
     DO NOT ask other questions that are not related to the form.
   `;

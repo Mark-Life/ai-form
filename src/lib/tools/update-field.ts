@@ -1,7 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getFieldNames, getFieldType } from "../utils/schema-utils";
+import type { FormDefinition } from "../utils/form-definition";
+import {
+  formatFieldLabel,
+  getFieldFormatDescription,
+  getFieldNames,
+  getFieldType,
+} from "../utils/schema-utils";
 
 const TIME_FORMAT_REGEX = /^\d{2}:\d{2}$/;
 
@@ -109,9 +115,34 @@ function processFieldValue(
 }
 
 export function createUpdateFieldTool<T extends z.ZodObject<z.ZodRawShape>>(
-  formSchema: T
+  formSchema: T,
+  formDefinition?: FormDefinition | null
 ) {
   const fieldNames = getFieldNames(formSchema) as string[];
+
+  // Create a map of field name to label
+  const fieldLabelMap = new Map<string, string>();
+  if (formDefinition) {
+    for (const field of formDefinition) {
+      fieldLabelMap.set(field.name, field.label);
+    }
+  }
+  // Fallback to formatted label if not in formDefinition
+  for (const name of fieldNames) {
+    if (!fieldLabelMap.has(name)) {
+      fieldLabelMap.set(name, formatFieldLabel(name));
+    }
+  }
+
+  // Build field-specific format descriptions with labels
+  const fieldFormatInfo = fieldNames
+    .map((name) => {
+      const fieldType = getFieldType(formSchema, name as keyof z.infer<T>);
+      const formatDesc = getFieldFormatDescription(fieldType);
+      const label = fieldLabelMap.get(name) || formatFieldLabel(name);
+      return `- ${name} (${label}): ${formatDesc}`;
+    })
+    .join("\n");
 
   return tool({
     description:
@@ -125,7 +156,7 @@ export function createUpdateFieldTool<T extends z.ZodObject<z.ZodRawShape>>(
       value: z
         .union([z.string(), z.number(), z.boolean(), z.array(z.string())])
         .describe(
-          "The value to set for the field (string, number, boolean, or array of strings for multi-select fields)"
+          `The value to set for the field. Format requirements:\n${fieldFormatInfo}`
         ),
     }),
     execute: ({ fieldName, value }) => {

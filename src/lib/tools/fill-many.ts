@@ -1,7 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getFieldNames, getFieldType } from "../utils/schema-utils";
+import type { FormDefinition } from "../utils/form-definition";
+import {
+  formatFieldLabel,
+  getFieldFormatDescription,
+  getFieldNames,
+  getFieldType,
+} from "../utils/schema-utils";
 
 const TIME_FORMAT_REGEX = /^\d{2}:\d{2}$/;
 
@@ -230,9 +236,34 @@ function buildSummaryMessage(
 }
 
 export function createFillManyTool<T extends z.ZodObject<z.ZodRawShape>>(
-  formSchema: T
+  formSchema: T,
+  formDefinition?: FormDefinition | null
 ) {
   const fieldNames = getFieldNames(formSchema) as string[];
+
+  // Create a map of field name to label
+  const fieldLabelMap = new Map<string, string>();
+  if (formDefinition) {
+    for (const field of formDefinition) {
+      fieldLabelMap.set(field.name, field.label);
+    }
+  }
+  // Fallback to formatted label if not in formDefinition
+  for (const name of fieldNames) {
+    if (!fieldLabelMap.has(name)) {
+      fieldLabelMap.set(name, formatFieldLabel(name));
+    }
+  }
+
+  // Build field-specific format descriptions with labels
+  const fieldFormatInfo = fieldNames
+    .map((name) => {
+      const fieldType = getFieldType(formSchema, name as keyof z.infer<T>);
+      const formatDesc = getFieldFormatDescription(fieldType);
+      const label = fieldLabelMap.get(name) || formatFieldLabel(name);
+      return `- ${name} (${label}): ${formatDesc}`;
+    })
+    .join("\n");
 
   return tool({
     description:
@@ -244,7 +275,7 @@ export function createFillManyTool<T extends z.ZodObject<z.ZodRawShape>>(
           z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])
         )
         .describe(
-          "Object mapping field names to values. Example: { firstName: 'John', lastName: 'Doe', multiSelect: ['option1', 'option2'] }"
+          `Object mapping field names to values. Format requirements:\n${fieldFormatInfo}\nExample: { firstName: 'John', lastName: 'Doe', birthDate: '1990-01-15', multiSelect: ['option1', 'option2'] }`
         ),
     }),
     execute: ({ fields }) => {

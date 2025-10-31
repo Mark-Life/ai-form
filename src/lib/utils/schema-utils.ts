@@ -247,3 +247,32 @@ export function formatFieldLabel(fieldName: string): string {
     .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
     .trim();
 }
+
+/**
+ * Get format description for a field type to use in tool schemas
+ */
+export function getFieldFormatDescription(
+  fieldType: ReturnType<typeof getFieldType>
+): string {
+  switch (fieldType) {
+    case "date":
+      return "format: YYYY-MM-DD";
+    case "time":
+      return "format: HH:MM (24-hour)";
+    case "email":
+      return "valid email address";
+    case "url":
+      return "valid URL (include protocol)";
+    case "phone":
+      return "phone number";
+    case "number":
+    case "range":
+      return "number";
+    case "checkbox":
+      return "boolean";
+    case "multiSelect":
+      return "array of strings";
+    default:
+      return "string";
+  }
+}
