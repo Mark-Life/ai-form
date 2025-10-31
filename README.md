@@ -25,10 +25,10 @@ Forms suck. Users skip them, make mistakes, or struggle with validation. This pu
 ## Demo
 
 ### Form Builder
-<video src="demo/form-builder.webm" controls width="100%"></video>
+<video src="demo/form-builder.mp4" controls width="100%"></video>
 
 ### AI Conversation
-<video src="demo/ai-chat.webm" controls width="100%"></video>
+<video src="demo/ai-chat.mp4" controls width="100%"></video>
 
 ## What it can do
 
